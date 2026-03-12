@@ -1,2 +1,3 @@
-pyinstaller --onefile --windowed --name "°à¼¶µãÃû" ClassRollCall.py
+pyinstaller --onefile --windowed --name "ClassRollCall" ClassRollCall.py
+
 pause
