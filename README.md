@@ -1,6 +1,3 @@
-# ClassRollCall
-ClassRollCall-一个轻量的班级点名工具
-
 # ClassRollCall - 班级点名器
 
 ![版本](https://img.shields.io/badge/版本-1.2-blue)
@@ -20,11 +17,7 @@ ClassRollCall 是一款轻量级、美观实用的班级点名工具。它悬浮
   - 真随机模式：每次抽取后重新洗牌（完全随机）
 
 ### 🎨 视觉特效
-- **全屏动画效果**（可切换）：
-  - 简约波纹：优雅的水波扩散
-  - 星光效果：8个方向的星光射线
-  - 旋转光环：旋转的椭圆光环
-  - 无动画：简洁模式
+- **全屏动画效果**
 - **毛玻璃弹窗**：
   - 大字号居中显示被点名字
   - 3秒后自动消失
@@ -81,7 +74,7 @@ ClassRollCall 是一款轻量级、美观实用的班级点名工具。它悬浮
 pip install PyQt5
 
 # 运行程序
-python name_card.py
+python ClassRollCall.py
 ```
 
 ### 方法二：打包成exe
@@ -90,62 +83,17 @@ python name_card.py
 pip install pyinstaller
 
 # 打包
-pyinstaller --onefile --windowed --name "点名器" name_card.py
-```
-
-## 📁 文件结构
-```
-ClassRollCall/
-├── name_card.py          # 主程序
-├── names.csv             # 默认名单文件（自动生成）
-└── README.md             # 说明文档
+pyinstaller --onefile --windowed --name "ClassRollCall" ClassRollCall.py
 ```
 
 程序会自动在 `%LOCALAPPDATA%\ClassRollCall\` 目录下创建配置文件：
 - `settings.json`：保存所有设置
 - `position.json`：保存按钮位置
 
-## ⚙️ 配置文件说明
-
-### settings.json 主要配置项
-```json
-{
-    "auto_start": false,           // 开机自启动
-    "pick_mode": "default",         // 抽取模式
-    "animation_style": "ripple",    // 动画样式
-    "button_text": "Call",          // 按钮文字
-    "button_style": "solid",        // 按钮样式
-    "button_color1": [100,150,255], // 按钮颜色1
-    "button_color2": [200,200,255], // 按钮颜色2
-    "popup_font_family": "Microsoft YaHei", // 弹窗字体
-    "popup_text_color": [40,60,120],        // 文字颜色
-    "popup_bg_style": "solid",               // 弹窗背景样式
-    "popup_bg_opacity": 220,                  // 背景透明度
-    "popup_use_bg_image": false               // 是否使用背景图片
-}
-```
-
 ## 🛠️ 开发环境
 - Python 3.6+
 - PyQt5 5.15+
 - Windows 10/11（推荐）
-
-## 📝 更新日志
-
-### v1.2 (最新)
-- ✨ 新增三种动画效果（简约波纹、星光效果、旋转光环）
-- 🎨 按钮和弹窗支持渐变色和金属质感
-- 🔧 设置界面添加滚动功能，适配小屏幕
-- 🐛 修复背景图片删除异常
-- 📍 添加按钮位置重置功能
-- 🔤 增加更多字体支持
-- ⚡ 优化代码性能和界面布局
-
-### v1.1
-- 初始正式版发布
-- 基础点名功能
-- 毛玻璃弹窗
-- 系统托盘支持
 
 ## 🙏 致谢
 - 感谢 PyQt5 提供的强大GUI框架
