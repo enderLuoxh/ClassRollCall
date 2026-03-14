@@ -7,6 +7,7 @@ import csv
 import shutil
 import winreg as reg
 import webbrowser
+import math
 
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -229,10 +230,13 @@ class GlassPopup(QWidget):
         corner_radius = int(20 * scale_factor)
         
         # 获取背景样式
-        bg_style = self.settings.get('popup_bg_style', 'solid')
-        bg_color1 = self.settings.get('popup_bg_color', [255, 255, 255])
+        bg_style = self.settings.get('popup_bg_style', 'gradient')
+        bg_color1 = self.settings.get('popup_bg_color1', [100, 150, 255])
         bg_color2 = self.settings.get('popup_bg_color2', [200, 220, 255])
         bg_opacity = self.settings.get('popup_bg_opacity', 220)
+        
+        # 获取文字透明度
+        text_opacity = self.settings.get('popup_text_opacity', 255)
         
         # 绘制背景
         if self.background_image and self.settings.get('popup_use_bg_image', False):
@@ -310,10 +314,10 @@ class GlassPopup(QWidget):
             text_width = font_metrics.horizontalAdvance(self.name)
         
         # 获取文字颜色
-        text_color = self.settings.get('popup_text_color', [40, 60, 120])
+        text_color = self.settings.get('popup_text_color', [255,255,255])
         
-        # 绘制名字
-        painter.setPen(QColor(text_color[0], text_color[1], text_color[2]))
+        # 绘制名字（带透明度）
+        painter.setPen(QColor(text_color[0], text_color[1], text_color[2], text_opacity))
         painter.setFont(font)
         
         text_x = (self.width() - text_width) // 2
@@ -330,7 +334,7 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.parent = parent
         self.setWindowTitle("设置")
-        self.setFixedSize(650, 600)
+        self.setFixedSize(650, 650)
         
         # 设置窗口标志，移除问号按钮
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
@@ -537,7 +541,7 @@ class SettingsDialog(QDialog):
         color2_layout.addWidget(QLabel("颜色2:"))
         self.color_preview2 = QLabel()
         self.color_preview2.setFixedSize(40, 25)
-        self.color_preview2.setStyleSheet("background-color: rgb(200, 200, 255); border: 1px solid gray;")
+        self.color_preview2.setStyleSheet("background-color: rgb(200, 100, 255); border: 1px solid gray;")
         
         self.color_btn2 = QPushButton("选择")
         self.color_btn2.clicked.connect(lambda: self.choose_button_color(2))
@@ -598,7 +602,7 @@ class SettingsDialog(QDialog):
         
         self.text_color_preview = QLabel()
         self.text_color_preview.setFixedSize(50, 30)
-        self.text_color_preview.setStyleSheet("background-color: rgb(40, 60, 120); border: 1px solid gray;")
+        self.text_color_preview.setStyleSheet("background-color: rgb(255, 255, 255); border: 1px solid gray;")
         
         self.text_color_btn = QPushButton("选择颜色")
         self.text_color_btn.clicked.connect(self.choose_text_color)
@@ -614,12 +618,33 @@ class SettingsDialog(QDialog):
         text_color_group.setLayout(text_color_layout)
         layout.addWidget(text_color_group)
         
+        # 文字透明度
+        text_opacity_group = QGroupBox("文字透明度")
+        text_opacity_layout = QHBoxLayout()
+        
+        self.text_opacity_slider = QSlider(Qt.Horizontal)
+        self.text_opacity_slider.setRange(30, 255)
+        self.text_opacity_slider.setValue(255)
+        self.text_opacity_slider.setTickInterval(15)
+        self.text_opacity_slider.setTickPosition(QSlider.TicksBelow)
+        self.text_opacity_value = QLabel("255")
+        
+        self.restore_text_opacity_btn = QPushButton("恢复默认")
+        self.restore_text_opacity_btn.clicked.connect(lambda: self.text_opacity_slider.setValue(255))
+        
+        text_opacity_layout.addWidget(self.text_opacity_slider)
+        text_opacity_layout.addWidget(self.text_opacity_value)
+        text_opacity_layout.addWidget(self.restore_text_opacity_btn)
+        
+        text_opacity_group.setLayout(text_opacity_layout)
+        layout.addWidget(text_opacity_group)
+        
         # 弹窗背景样式
         bg_style_group = QGroupBox("弹窗背景样式")
         bg_style_layout = QVBoxLayout()
         
         self.popup_style_combo = QComboBox()
-        self.popup_style_combo.addItems(["纯色", "渐变色", "金属质感"])
+        self.popup_style_combo.addItems(["渐变色", "纯色", "金属质感"])
         self.popup_style_combo.currentTextChanged.connect(self.on_popup_style_changed)
         
         bg_style_layout.addWidget(QLabel("选择样式:"))
@@ -630,7 +655,7 @@ class SettingsDialog(QDialog):
         bg_color1_layout.addWidget(QLabel("颜色1:"))
         self.bg_color_preview1 = QLabel()
         self.bg_color_preview1.setFixedSize(40, 25)
-        self.bg_color_preview1.setStyleSheet("background-color: rgb(255, 255, 255); border: 1px solid gray;")
+        self.bg_color_preview1.setStyleSheet("background-color: rgb(100, 150, 255); border: 1px solid gray;")
         
         self.bg_color_btn1 = QPushButton("选择")
         self.bg_color_btn1.clicked.connect(lambda: self.choose_bg_color(1))
@@ -645,7 +670,7 @@ class SettingsDialog(QDialog):
         bg_color2_layout.addWidget(QLabel("颜色2:"))
         self.bg_color_preview2 = QLabel()
         self.bg_color_preview2.setFixedSize(40, 25)
-        self.bg_color_preview2.setStyleSheet("background-color: rgb(200, 220, 255); border: 1px solid gray;")
+        self.bg_color_preview2.setStyleSheet("background-color: rgb(200, 100, 255); border: 1px solid gray;")
         
         self.bg_color_btn2 = QPushButton("选择")
         self.bg_color_btn2.clicked.connect(lambda: self.choose_bg_color(2))
@@ -775,7 +800,7 @@ class SettingsDialog(QDialog):
             
     def choose_button_color(self, color_num):
         """选择按钮颜色"""
-        current_color = self.settings.get(f'button_color{color_num}', [100, 150, 255] if color_num == 1 else [200, 200, 255])
+        current_color = self.settings.get(f'button_color{color_num}', [100, 150, 255] if color_num == 1 else [200, 100, 255])
         color = QColorDialog.getColor(QColor(*current_color), self, f"选择按钮颜色{color_num}")
         if color.isValid():
             self.settings[f'button_color{color_num}'] = [color.red(), color.green(), color.blue()]
@@ -784,14 +809,14 @@ class SettingsDialog(QDialog):
             
     def choose_text_color(self):
         """选择文字颜色"""
-        color = QColorDialog.getColor(QColor(40, 60, 120), self, "选择文字颜色")
+        color = QColorDialog.getColor(QColor(255, 255, 255), self, "选择文字颜色")
         if color.isValid():
             self.settings['popup_text_color'] = [color.red(), color.green(), color.blue()]
             self.text_color_preview.setStyleSheet(f"background-color: rgb({color.red()}, {color.green()}, {color.blue()}); border: 1px solid gray;")
             
     def choose_bg_color(self, color_num):
         """选择背景颜色"""
-        current_color = self.settings.get(f'popup_bg_color{color_num}', [255, 255, 255] if color_num == 1 else [200, 220, 255])
+        current_color = self.settings.get(f'popup_bg_color{color_num}', [100, 150, 255] if color_num == 1 else [200, 100, 255])
         color = QColorDialog.getColor(QColor(*current_color), self, f"选择背景颜色{color_num}")
         if color.isValid():
             self.settings[f'popup_bg_color{color_num}'] = [color.red(), color.green(), color.blue()]
@@ -801,22 +826,21 @@ class SettingsDialog(QDialog):
     def restore_button_color(self):
         """恢复按钮默认颜色"""
         self.settings['button_color1'] = [100, 150, 255]
-        self.settings['button_color2'] = [200, 200, 255]
-        opacity = self.settings.get('button_opacity', 180)
+        self.settings['button_color2'] = [200, 100, 255]
         self.color_preview1.setStyleSheet("background-color: rgb(100, 150, 255); border: 1px solid gray;")
-        self.color_preview2.setStyleSheet("background-color: rgb(200, 200, 255); border: 1px solid gray;")
+        self.color_preview2.setStyleSheet("background-color: rgb(200, 100, 255); border: 1px solid gray;")
         
     def restore_text_color(self):
         """恢复文字默认颜色"""
-        self.settings['popup_text_color'] = [40, 60, 120]
-        self.text_color_preview.setStyleSheet("background-color: rgb(40, 60, 120); border: 1px solid gray;")
+        self.settings['popup_text_color'] = [255, 255, 255]
+        self.text_color_preview.setStyleSheet("background-color: rgb(255, 255, 255); border: 1px solid gray;")
         
     def restore_bg_color(self):
         """恢复背景默认颜色"""
-        self.settings['popup_bg_color1'] = [255, 255, 255]
-        self.settings['popup_bg_color2'] = [200, 220, 255]
-        self.bg_color_preview1.setStyleSheet("background-color: rgb(255, 255, 255); border: 1px solid gray;")
-        self.bg_color_preview2.setStyleSheet("background-color: rgb(200, 220, 255); border: 1px solid gray;")
+        self.settings['popup_bg_color1'] = [100, 150, 255]
+        self.settings['popup_bg_color2'] = [200, 100, 255]
+        self.bg_color_preview1.setStyleSheet("background-color: rgb(100, 150, 255); border: 1px solid gray;")
+        self.bg_color_preview2.setStyleSheet("background-color: rgb(200, 100, 255); border: 1px solid gray;")
         
     def select_bg_image(self):
         """选择背景图片"""
@@ -850,18 +874,19 @@ class SettingsDialog(QDialog):
             self.auto_start_cb.setChecked(False)
             self.mode_default_rb.setChecked(True)
             self.file_path_edit.clear()
-            self.animation_combo.setCurrentIndex(0)
+            self.animation_combo.setCurrentIndex(0)  # 简约波纹
             
             # 按钮设置
             self.button_text_edit.setText("Call")
             self.opacity_slider.setValue(180)
-            self.button_style_combo.setCurrentText("纯色")
+            self.button_style_combo.setCurrentText("渐变色")  # 默认渐变色
             self.restore_button_color()
             
             # 弹窗设置
             self.font_combo.setCurrentFont(QFont("Microsoft YaHei"))
             self.restore_text_color()
-            self.popup_style_combo.setCurrentText("纯色")
+            self.text_opacity_slider.setValue(255)  # 文字透明度默认255
+            self.popup_style_combo.setCurrentText("渐变色")  # 默认渐变色
             self.restore_bg_color()
             self.bg_opacity_slider.setValue(220)
             self.use_bg_image_cb.setChecked(False)
@@ -901,12 +926,12 @@ class SettingsDialog(QDialog):
         self.opacity_value.setText(str(opacity))
         
         # 按钮样式
-        button_style = self.settings.get('button_style', 'solid')
+        button_style = self.settings.get('button_style', 'gradient')
         style_map = {'solid': '纯色', 'gradient': '渐变色', 'metal': '金属质感'}
-        self.button_style_combo.setCurrentText(style_map.get(button_style, '纯色'))
+        self.button_style_combo.setCurrentText(style_map.get(button_style, '渐变色'))
         
         color1 = self.settings.get('button_color1', [100, 150, 255])
-        color2 = self.settings.get('button_color2', [200, 200, 255])
+        color2 = self.settings.get('button_color2', [200, 100, 255])
         self.color_preview1.setStyleSheet(f"background-color: rgb({color1[0]}, {color1[1]}, {color1[2]}); border: 1px solid gray;")
         self.color_preview2.setStyleSheet(f"background-color: rgb({color2[0]}, {color2[1]}, {color2[2]}); border: 1px solid gray;")
         
@@ -914,16 +939,21 @@ class SettingsDialog(QDialog):
         font_family = self.settings.get('popup_font_family', 'Microsoft YaHei')
         self.font_combo.setCurrentFont(QFont(font_family))
         
-        text_color = self.settings.get('popup_text_color', [40, 60, 120])
+        text_color = self.settings.get('popup_text_color', [255, 255, 255])
         self.text_color_preview.setStyleSheet(f"background-color: rgb({text_color[0]}, {text_color[1]}, {text_color[2]}); border: 1px solid gray;")
         
-        # 弹窗背景样式
-        popup_style = self.settings.get('popup_bg_style', 'solid')
-        style_map = {'solid': '纯色', 'gradient': '渐变色', 'metal': '金属质感'}
-        self.popup_style_combo.setCurrentText(style_map.get(popup_style, '纯色'))
+        # 文字透明度
+        text_opacity = self.settings.get('popup_text_opacity', 255)
+        self.text_opacity_slider.setValue(text_opacity)
+        self.text_opacity_value.setText(str(text_opacity))
         
-        bg_color1 = self.settings.get('popup_bg_color1', [255, 255, 255])
-        bg_color2 = self.settings.get('popup_bg_color2', [200, 220, 255])
+        # 弹窗背景样式
+        popup_style = self.settings.get('popup_bg_style', 'gradient')
+        style_map = {'solid': '纯色', 'gradient': '渐变色', 'metal': '金属质感'}
+        self.popup_style_combo.setCurrentText(style_map.get(popup_style, '渐变色'))
+        
+        bg_color1 = self.settings.get('popup_bg_color1', [100, 150, 255])
+        bg_color2 = self.settings.get('popup_bg_color2', [200, 100, 255])
         self.bg_color_preview1.setStyleSheet(f"background-color: rgb({bg_color1[0]}, {bg_color1[1]}, {bg_color1[2]}); border: 1px solid gray;")
         self.bg_color_preview2.setStyleSheet(f"background-color: rgb({bg_color2[0]}, {bg_color2[1]}, {bg_color2[2]}); border: 1px solid gray;")
         
@@ -944,6 +974,7 @@ class SettingsDialog(QDialog):
         
         # 连接信号
         self.opacity_slider.valueChanged.connect(lambda v: self.opacity_value.setText(str(v)))
+        self.text_opacity_slider.valueChanged.connect(lambda v: self.text_opacity_value.setText(str(v)))
         self.bg_opacity_slider.valueChanged.connect(lambda v: self.bg_opacity_value.setText(str(v)))
         self.image_opacity_slider.valueChanged.connect(lambda v: self.image_opacity_value.setText(str(v)))
         
@@ -963,14 +994,15 @@ class SettingsDialog(QDialog):
         
         # 按钮样式
         style_map = {'纯色': 'solid', '渐变色': 'gradient', '金属质感': 'metal'}
-        self.settings['button_style'] = style_map.get(self.button_style_combo.currentText(), 'solid')
+        self.settings['button_style'] = style_map.get(self.button_style_combo.currentText(), 'gradient')
         
         # 弹窗设置
         self.settings['popup_font_family'] = self.font_combo.currentFont().family()
+        self.settings['popup_text_opacity'] = self.text_opacity_slider.value()
         self.settings['popup_bg_opacity'] = self.bg_opacity_slider.value()
         
         # 弹窗背景样式
-        self.settings['popup_bg_style'] = style_map.get(self.popup_style_combo.currentText(), 'solid')
+        self.settings['popup_bg_style'] = style_map.get(self.popup_style_combo.currentText(), 'gradient')
         
         self.settings['popup_use_bg_image'] = self.use_bg_image_cb.isChecked()
         self.settings['popup_bg_image_opacity'] = self.image_opacity_slider.value()
@@ -1001,7 +1033,7 @@ class AboutDialog(QDialog):
         # 创建文本并左对齐
         text = QLabel(
             "ClassRollCall-班级点名\n"
-            "版本: 1.2（formal）\n"
+            "版本: 1.3（formal）\n"
             "作者: enderLuoxh\n"
         )
         text.setAlignment(Qt.AlignLeft)
@@ -1070,16 +1102,17 @@ class DraggableButton(QWidget):
             'auto_start': False,
             'button_opacity': 180,
             'button_color1': [100, 150, 255],
-            'button_color2': [200, 200, 255],
-            'button_style': 'solid',
+            'button_color2': [200, 100, 255],
+            'button_style': 'gradient',
             'button_text': 'Call',
             'pick_mode': 'default',
-            'animation_style': 'none',
+            'animation_style': 'ripple',
             'popup_font_family': 'Microsoft YaHei',
-            'popup_text_color': [40, 60, 120],
-            'popup_bg_color1': [255, 255, 255],
-            'popup_bg_color2': [200, 220, 255],
-            'popup_bg_style': 'solid',
+            'popup_text_color': [255, 255, 255],
+            'popup_text_opacity': 255,
+            'popup_bg_color1': [100, 150, 255],
+            'popup_bg_color2': [200, 100, 255],
+            'popup_bg_style': 'gradient',
             'popup_bg_opacity': 220,
             'popup_use_bg_image': False,
             'popup_bg_image_path': '',
@@ -1457,13 +1490,13 @@ class DraggableButton(QWidget):
     def update_button_style(self):
         """更新按钮样式（支持渐变色和金属质感）"""
         font_size = int(self.button_height * 0.5)
-        button_style = self.settings.get('button_style', 'solid')
+        button_style = self.settings.get('button_style', 'gradient')
         opacity = self.settings.get('button_opacity', 180)
         color1 = self.settings.get('button_color1', [100, 150, 255])
-        color2 = self.settings.get('button_color2', [200, 200, 255])
+        color2 = self.settings.get('button_color2', [200, 100, 255])
         
         if button_style == 'gradient':
-            # 渐变色
+            # 渐变色 - 修复渐变问题，确保两个颜色都正确显示
             style = f"""
                 QPushButton {{
                     font-size: {font_size}px;
@@ -1701,7 +1734,7 @@ def main():
     app.setStyle("Fusion")
     
     # 设置应用程序名称（用于托盘图标）
-    app.setApplicationName("点名器")
+    app.setApplicationName("点名")
     
     # 设置字体
     font = QFont("Microsoft YaHei", 10)
@@ -1713,7 +1746,7 @@ def main():
         sys.exit(1)
     
     window = DraggableButton()
-    window.setWindowTitle("点名器")
+    window.setWindowTitle("点名")
     window.show()
     
     sys.exit(app.exec_())
