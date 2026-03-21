@@ -154,11 +154,12 @@ class RippleEffect(QWidget):
                 painter.drawEllipse(anim['pos'], anim['radius'], anim['radius'])
 
 class GlassPopup(QWidget):
-    """毛玻璃效果弹窗 - 支持渐变和金属质感"""
-    def __init__(self, name, settings, parent=None):
+    """毛玻璃效果弹窗 - 支持渐变和背景图片"""
+    def __init__(self, name, settings, on_close_callback=None, parent=None):
         super().__init__(parent)
         self.name = name
         self.settings = settings
+        self.on_close_callback = on_close_callback
         
         # 获取屏幕DPI缩放因子
         screen = QApplication.primaryScreen()
@@ -215,7 +216,10 @@ class GlassPopup(QWidget):
                 self.background_image = QImage(bg_image_path)
         
         # 3秒后自动消失
-        QTimer.singleShot(3000, self.close)
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.close)
+        self.timer.start(3000)
         
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -229,7 +233,7 @@ class GlassPopup(QWidget):
         rect = self.rect()
         corner_radius = int(20 * scale_factor)
         
-        # 获取背景样式
+        # 获取背景样式（移除了金属质感）
         bg_style = self.settings.get('popup_bg_style', 'gradient')
         bg_color1 = self.settings.get('popup_bg_color1', [100, 150, 255])
         bg_color2 = self.settings.get('popup_bg_color2', [200, 220, 255])
@@ -260,13 +264,6 @@ class GlassPopup(QWidget):
                 gradient.setColorAt(0, QColor(bg_color1[0], bg_color1[1], bg_color1[2], bg_opacity // 2))
                 gradient.setColorAt(1, QColor(bg_color2[0], bg_color2[1], bg_color2[2], bg_opacity // 2))
                 painter.setBrush(QBrush(gradient))
-            elif bg_style == 'metal':
-                # 金属质感
-                gradient = QLinearGradient(rect.topLeft(), rect.bottomRight())
-                gradient.setColorAt(0, QColor(220, 220, 220, bg_opacity // 2))
-                gradient.setColorAt(0.5, QColor(255, 255, 255, bg_opacity // 2))
-                gradient.setColorAt(1, QColor(180, 180, 180, bg_opacity // 2))
-                painter.setBrush(QBrush(gradient))
             else:
                 painter.setBrush(QBrush(QColor(bg_color1[0], bg_color1[1], bg_color1[2], bg_opacity // 2)))
             
@@ -280,13 +277,6 @@ class GlassPopup(QWidget):
                 gradient = QLinearGradient(rect.topLeft(), rect.bottomRight())
                 gradient.setColorAt(0, QColor(bg_color1[0], bg_color1[1], bg_color1[2], bg_opacity))
                 gradient.setColorAt(1, QColor(bg_color2[0], bg_color2[1], bg_color2[2], bg_opacity))
-                painter.setBrush(QBrush(gradient))
-            elif bg_style == 'metal':
-                # 金属质感
-                gradient = QLinearGradient(rect.topLeft(), rect.bottomRight())
-                gradient.setColorAt(0, QColor(180, 180, 180, bg_opacity))
-                gradient.setColorAt(0.5, QColor(240, 240, 240, bg_opacity))
-                gradient.setColorAt(1, QColor(160, 160, 160, bg_opacity))
                 painter.setBrush(QBrush(gradient))
             else:
                 painter.setBrush(QBrush(QColor(bg_color1[0], bg_color1[1], bg_color1[2], bg_opacity)))
@@ -327,6 +317,12 @@ class GlassPopup(QWidget):
         
     def mousePressEvent(self, event):
         self.close()
+        
+    def closeEvent(self, event):
+        """重写关闭事件，在关闭时调用回调函数"""
+        if self.on_close_callback:
+            self.on_close_callback()
+        super().closeEvent(event)
 
 class SettingsDialog(QDialog):
     """设置对话框 - 分类管理（带滚动功能）"""
@@ -422,6 +418,16 @@ class SettingsDialog(QDialog):
         animation_group.setLayout(animation_layout)
         layout.addWidget(animation_group)
         
+        # 防连点设置
+        anti_spam_group = QGroupBox("防连点设置")
+        anti_spam_layout = QVBoxLayout()
+        
+        self.anti_spam_cb = QCheckBox("启用防连点（点击后按钮变灰，等待弹窗关闭后恢复）")
+        anti_spam_layout.addWidget(self.anti_spam_cb)
+        
+        anti_spam_group.setLayout(anti_spam_layout)
+        layout.addWidget(anti_spam_group)
+        
         # 名单文件
         file_group = QGroupBox("名单文件")
         file_layout = QHBoxLayout()
@@ -515,7 +521,7 @@ class SettingsDialog(QDialog):
         style_layout = QVBoxLayout()
         
         self.button_style_combo = QComboBox()
-        self.button_style_combo.addItems(["纯色", "渐变色", "金属质感"])
+        self.button_style_combo.addItems(["纯色", "渐变色"])
         self.button_style_combo.currentTextChanged.connect(self.on_button_style_changed)
         
         style_layout.addWidget(QLabel("选择样式:"))
@@ -639,12 +645,12 @@ class SettingsDialog(QDialog):
         text_opacity_group.setLayout(text_opacity_layout)
         layout.addWidget(text_opacity_group)
         
-        # 弹窗背景样式
+        # 弹窗背景样式（移除了金属质感）
         bg_style_group = QGroupBox("弹窗背景样式")
         bg_style_layout = QVBoxLayout()
         
         self.popup_style_combo = QComboBox()
-        self.popup_style_combo.addItems(["渐变色", "纯色", "金属质感"])
+        self.popup_style_combo.addItems(["渐变色", "纯色"])
         self.popup_style_combo.currentTextChanged.connect(self.on_popup_style_changed)
         
         bg_style_layout.addWidget(QLabel("选择样式:"))
@@ -766,15 +772,15 @@ class SettingsDialog(QDialog):
         
     def on_button_style_changed(self, style):
         """按钮样式改变时更新UI"""
-        is_gradient_or_metal = style in ["渐变色", "金属质感"]
-        self.color_btn2.setEnabled(is_gradient_or_metal)
-        self.color_preview2.setEnabled(is_gradient_or_metal)
+        is_gradient = style == "渐变色"
+        self.color_btn2.setEnabled(is_gradient)
+        self.color_preview2.setEnabled(is_gradient)
         
     def on_popup_style_changed(self, style):
         """弹窗样式改变时更新UI"""
-        is_gradient_or_metal = style in ["渐变色", "金属质感"]
-        self.bg_color_btn2.setEnabled(is_gradient_or_metal)
-        self.bg_color_preview2.setEnabled(is_gradient_or_metal)
+        is_gradient = style == "渐变色"
+        self.bg_color_btn2.setEnabled(is_gradient)
+        self.bg_color_preview2.setEnabled(is_gradient)
         
     def select_names_file(self):
         """选择名单文件"""
@@ -875,6 +881,7 @@ class SettingsDialog(QDialog):
             self.mode_default_rb.setChecked(True)
             self.file_path_edit.clear()
             self.animation_combo.setCurrentIndex(0)  # 简约波纹
+            self.anti_spam_cb.setChecked(True)  # 默认启用防连点
             
             # 按钮设置
             self.button_text_edit.setText("Call")
@@ -918,6 +925,9 @@ class SettingsDialog(QDialog):
         current_anim = self.settings.get('animation_style', 'ripple')
         self.animation_combo.setCurrentIndex(animation_map.get(current_anim, 0))
         
+        # 防连点
+        self.anti_spam_cb.setChecked(self.settings.get('anti_spam', True))
+        
         # 按钮设置
         self.button_text_edit.setText(self.settings.get('button_text', 'Call'))
         
@@ -927,7 +937,7 @@ class SettingsDialog(QDialog):
         
         # 按钮样式
         button_style = self.settings.get('button_style', 'gradient')
-        style_map = {'solid': '纯色', 'gradient': '渐变色', 'metal': '金属质感'}
+        style_map = {'solid': '纯色', 'gradient': '渐变色'}
         self.button_style_combo.setCurrentText(style_map.get(button_style, '渐变色'))
         
         color1 = self.settings.get('button_color1', [100, 150, 255])
@@ -949,7 +959,7 @@ class SettingsDialog(QDialog):
         
         # 弹窗背景样式
         popup_style = self.settings.get('popup_bg_style', 'gradient')
-        style_map = {'solid': '纯色', 'gradient': '渐变色', 'metal': '金属质感'}
+        style_map = {'solid': '纯色', 'gradient': '渐变色'}
         self.popup_style_combo.setCurrentText(style_map.get(popup_style, '渐变色'))
         
         bg_color1 = self.settings.get('popup_bg_color1', [100, 150, 255])
@@ -988,12 +998,15 @@ class SettingsDialog(QDialog):
         anim_map = {0: 'ripple', 1: 'spark', 2: 'circle', 3: 'none'}
         self.settings['animation_style'] = anim_map.get(self.animation_combo.currentIndex(), 'ripple')
         
+        # 防连点
+        self.settings['anti_spam'] = self.anti_spam_cb.isChecked()
+        
         # 按钮设置
         self.settings['button_text'] = self.button_text_edit.text() or 'Call'
         self.settings['button_opacity'] = self.opacity_slider.value()
         
         # 按钮样式
-        style_map = {'纯色': 'solid', '渐变色': 'gradient', '金属质感': 'metal'}
+        style_map = {'纯色': 'solid', '渐变色': 'gradient'}
         self.settings['button_style'] = style_map.get(self.button_style_combo.currentText(), 'gradient')
         
         # 弹窗设置
@@ -1033,7 +1046,7 @@ class AboutDialog(QDialog):
         # 创建文本并左对齐
         text = QLabel(
             "ClassRollCall-班级点名\n"
-            "版本: 1.3（formal）\n"
+            "版本: 1.4（formal）\n"
             "作者: enderLuoxh\n"
         )
         text.setAlignment(Qt.AlignLeft)
@@ -1107,6 +1120,7 @@ class DraggableButton(QWidget):
             'button_text': 'Call',
             'pick_mode': 'default',
             'animation_style': 'ripple',
+            'anti_spam': True,  # 默认启用防连点
             'popup_font_family': 'Microsoft YaHei',
             'popup_text_color': [255, 255, 255],
             'popup_text_opacity': 255,
@@ -1150,6 +1164,10 @@ class DraggableButton(QWidget):
         self.is_dragging = False
         self.drag_start_pos = None
         self.drag_threshold = int(5 * self.scale_factor)
+        
+        # 防连点相关
+        self.is_processing = False  # 是否正在处理抽取（防连点）
+        self.current_popup = None   # 当前打开的弹窗
         
         # 加载配置
         self.load_settings()
@@ -1301,6 +1319,13 @@ class DraggableButton(QWidget):
         else:
             self.current_round = []
             self.current_index = 0
+    
+    def restore_button_from_spam(self):
+        """恢复按钮正常状态（防连点恢复）"""
+        self.is_processing = False
+        self.button.setEnabled(True)
+        self.update_button_style()
+        print("防连点恢复，按钮已启用")
             
     def setup_ui(self):
         # 主布局
@@ -1423,6 +1448,11 @@ class DraggableButton(QWidget):
         # 重新加载名单（可能更改了文件）
         self.load_names()
         self.reset_round()
+        # 确保按钮状态重置
+        if self.is_processing:
+            self.is_processing = False
+            self.button.setEnabled(True)
+            self.update_button_style()
     
     def show_about(self):
         """显示关于对话框"""
@@ -1488,15 +1518,34 @@ class DraggableButton(QWidget):
         self.handle_auto_start()
         
     def update_button_style(self):
-        """更新按钮样式（支持渐变色和金属质感）"""
+        """更新按钮样式（支持渐变和纯色）"""
         font_size = int(self.button_height * 0.5)
         button_style = self.settings.get('button_style', 'gradient')
         opacity = self.settings.get('button_opacity', 180)
         color1 = self.settings.get('button_color1', [100, 150, 255])
         color2 = self.settings.get('button_color2', [200, 100, 255])
         
+        # 如果正在处理中，使用灰色样式
+        if self.is_processing and self.settings.get('anti_spam', True):
+            style = f"""
+                QPushButton {{
+                    font-size: {font_size}px;
+                    font-weight: bold;
+                    font-family: Microsoft YaHei;
+                    color: #CCCCCC;
+                    border: none;
+                    border-radius: {int(self.button_height * 0.15)}px;
+                    padding: 0px;
+                    margin: 0px;
+                    qproperty-alignment: AlignCenter;
+                    background-color: rgba(120, 120, 120, {opacity});
+                }}
+            """
+            self.button.setStyleSheet(style)
+            return
+        
         if button_style == 'gradient':
-            # 渐变色 - 修复渐变问题，确保两个颜色都正确显示
+            # 渐变色
             style = f"""
                 QPushButton {{
                     font-size: {font_size}px;
@@ -1516,31 +1565,6 @@ class DraggableButton(QWidget):
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                         stop:0 rgba({min(color1[0] + 20, 255)}, {min(color1[1] + 20, 255)}, {min(color1[2] + 20, 255)}, {min(opacity + 40, 255)}),
                         stop:1 rgba({min(color2[0] + 20, 255)}, {min(color2[1] + 20, 255)}, {min(color2[2] + 20, 255)}, {min(opacity + 40, 255)}));
-                }}
-            """
-        elif button_style == 'metal':
-            # 金属质感
-            style = f"""
-                QPushButton {{
-                    font-size: {font_size}px;
-                    font-weight: bold;
-                    font-family: Microsoft YaHei;
-                    color: #333333;
-                    border: 2px solid #AAAAAA;
-                    border-radius: {int(self.button_height * 0.15)}px;
-                    padding: 0px;
-                    margin: 0px;
-                    qproperty-alignment: AlignCenter;
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 rgba(240, 240, 240, {opacity}),
-                        stop:0.5 rgba(200, 200, 200, {opacity}),
-                        stop:1 rgba(160, 160, 160, {opacity}));
-                }}
-                QPushButton:hover {{
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 rgba(255, 255, 255, {min(opacity + 40, 255)}),
-                        stop:0.5 rgba(220, 220, 220, {min(opacity + 40, 255)}),
-                        stop:1 rgba(180, 180, 180, {min(opacity + 40, 255)}));
                 }}
             """
         else:
@@ -1607,18 +1631,23 @@ class DraggableButton(QWidget):
             pass
         
     def eventFilter(self, obj, event):
-        """事件过滤器，用于处理按钮上的鼠标事件"""
+        """事件过滤器，用于处理按钮上的鼠标/触摸事件"""
         if obj == self.button:
-            if event.type() == QEvent.MouseButtonPress:
-                self.drag_start_pos = event.pos()
+            if event.type() == QEvent.MouseButtonPress or event.type() == QEvent.TouchBegin:
+                self.drag_start_pos = event.pos() if hasattr(event, 'pos') else QPoint(0, 0)
                 self.is_dragging = False
                 return False
                 
-            elif event.type() == QEvent.MouseMove:
+            elif event.type() == QEvent.MouseMove or event.type() == QEvent.TouchUpdate:
                 if event.buttons() & Qt.LeftButton and self.drag_start_pos:
-                    move_distance = (event.pos() - self.drag_start_pos).manhattanLength()
+                    # 获取当前位置
+                    current_pos = event.pos() if hasattr(event, 'pos') else QPoint(0, 0)
+                    move_distance = (current_pos - self.drag_start_pos).manhattanLength()
                     
-                    if move_distance > self.drag_threshold:
+                    # 增加触摸容差，减少误判为拖动
+                    touch_tolerance = int(15 * self.scale_factor)
+                    
+                    if move_distance > touch_tolerance:
                         self.is_dragging = True
                         button_global_pos = self.button.mapToGlobal(self.drag_start_pos)
                         self.drag_position = button_global_pos - self.pos()
@@ -1627,7 +1656,7 @@ class DraggableButton(QWidget):
                         
                 return False
                 
-            elif event.type() == QEvent.MouseButtonRelease:
+            elif event.type() == QEvent.MouseButtonRelease or event.type() == QEvent.TouchEnd:
                 if self.is_dragging:
                     self.is_dragging = False
                     self.drag_start_pos = None
@@ -1635,17 +1664,36 @@ class DraggableButton(QWidget):
                     self.save_position()
                     return True
                     
+                # 如果不是拖动，则处理点击
                 self.drag_start_pos = None
                 return False
                 
         return super().eventFilter(obj, event)
         
+    def on_popup_closed(self):
+        """弹窗关闭时恢复按钮（防连点恢复）"""
+        if self.settings.get('anti_spam', True):
+            self.restore_button_from_spam()
+        self.current_popup = None
+        
     def pick_name(self):
         """抽取名字"""
+        # 防连点检查
+        if self.settings.get('anti_spam', True) and self.is_processing:
+            print("正在处理中，请稍后再试")
+            return
+        
         if not self.all_names:
             print("名单为空，无法抽取")
             self.show_empty_names_warning()
             return
+        
+        # 如果启用了防连点，先锁定按钮并变灰
+        if self.settings.get('anti_spam', True):
+            self.is_processing = True
+            self.button.setEnabled(False)
+            self.update_button_style()
+            print("防连点已启用，按钮已锁定")
         
         # 根据模式选择名字
         if self.settings.get('pick_mode', 'default') == 'random':
@@ -1661,9 +1709,9 @@ class DraggableButton(QWidget):
             self.current_index += 1
             print(f"顺序抽取: {name} (第 {self.current_index}/{len(self.current_round)})")
         
-        # 显示毛玻璃弹窗
-        self.popup = GlassPopup(name, self.settings)
-        self.popup.show()
+        # 显示毛玻璃弹窗，传入回调函数
+        self.current_popup = GlassPopup(name, self.settings, self.on_popup_closed)
+        self.current_popup.show()
         
         # 如果启用了动画，显示动画效果
         animation_style = self.settings.get('animation_style', 'ripple')
@@ -1673,6 +1721,10 @@ class DraggableButton(QWidget):
             self.ripple_effect.add_animation(center)
             self.ripple_effect.show()
             self.ripple_effect.raise_()
+        
+        # 如果防连点未启用，确保按钮可用
+        if not self.settings.get('anti_spam', True):
+            self.button.setEnabled(True)
         
     def mousePressEvent(self, event):
         """处理窗口本身的拖动开始"""
