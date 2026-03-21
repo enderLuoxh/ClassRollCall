@@ -1,6 +1,6 @@
 # ClassRollCall - 班级点名器
 
-![版本](https://img.shields.io/badge/版本-1.2-blue)
+![版本](https://img.shields.io/badge/版本-1.4-blue)
 ![Python](https://img.shields.io/badge/Python-3.6+-green)
 ![PyQt5](https://img.shields.io/badge/PyQt5-5.15+-orange)
 
@@ -26,11 +26,11 @@ ClassRollCall 是一款轻量级、美观实用的班级点名工具。它悬浮
 
 ### 🎛️ 高度自定义
 - **按钮样式**：
-  - 纯色、渐变色、金属质感
+  - 纯色、渐变色
   - 可自定义颜色和透明度
   - 可修改按钮文字
 - **弹窗样式**：
-  - 纯色、渐变色、金属质感背景
+  - 纯色、渐变色
   - 自定义文字颜色、字体
   - 支持背景图片（可调节透明度）
 - **开机自启动**：可选开机自动运行
