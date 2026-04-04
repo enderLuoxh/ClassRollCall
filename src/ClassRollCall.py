@@ -8,11 +8,67 @@ import shutil
 import winreg as reg
 import webbrowser
 import math
+import subprocess
+import tempfile
 
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
+# ==================== 全局异常捕获与自动重启 ====================
+CRASH_COUNT_FILE = os.path.join(tempfile.gettempdir(), "ClassRollCall_crash_count.txt")
+
+def get_crash_count():
+    try:
+        if os.path.exists(CRASH_COUNT_FILE):
+            with open(CRASH_COUNT_FILE, "r") as f:
+                return int(f.read().strip())
+    except:
+        pass
+    return 0
+
+def set_crash_count(count):
+    try:
+        with open(CRASH_COUNT_FILE, "w") as f:
+            f.write(str(count))
+    except:
+        pass
+
+def restart_app():
+    """重启当前应用程序"""
+    python = sys.executable
+    if getattr(sys, 'frozen', False):
+        # 打包后的exe
+        subprocess.Popen([python])
+    else:
+        subprocess.Popen([python] + sys.argv)
+    sys.exit(0)
+
+def global_exception_handler(exc_type, exc_value, exc_traceback):
+    """全局异常处理器"""
+    # 忽略KeyboardInterrupt
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    
+    # 打印错误信息到控制台
+    print("程序崩溃:", exc_type, exc_value)
+    
+    # 获取崩溃次数
+    crash_count = get_crash_count()
+    if crash_count < 2:  # 最多自动重启2次，避免无限循环
+        set_crash_count(crash_count + 1)
+        print(f"正在自动重启... (第{crash_count+1}次)")
+        restart_app()
+    else:
+        # 超过重启次数，重置计数器并退出
+        set_crash_count(0)
+        print("多次崩溃，停止自动重启")
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
+sys.excepthook = global_exception_handler
+
+# ==================== 波纹动画效果 ====================
 class RippleEffect(QWidget):
     """波纹动画效果 - 简约风格"""
     def __init__(self, parent=None):
@@ -153,6 +209,7 @@ class RippleEffect(QWidget):
                 painter.setBrush(Qt.NoBrush)
                 painter.drawEllipse(anim['pos'], anim['radius'], anim['radius'])
 
+# ==================== 毛玻璃弹窗 ====================
 class GlassPopup(QWidget):
     """毛玻璃效果弹窗 - 支持渐变和背景图片"""
     def __init__(self, name, settings, on_close_callback=None, parent=None):
@@ -324,6 +381,7 @@ class GlassPopup(QWidget):
             self.on_close_callback()
         super().closeEvent(event)
 
+# ==================== 设置对话框 ====================
 class SettingsDialog(QDialog):
     """设置对话框 - 分类管理（带滚动功能）"""
     def __init__(self, parent=None):
@@ -1027,6 +1085,7 @@ class SettingsDialog(QDialog):
         
         self.accept()
 
+# ==================== 关于对话框 ====================
 class AboutDialog(QDialog):
     """关于对话框"""
     def __init__(self, parent=None):
@@ -1046,7 +1105,7 @@ class AboutDialog(QDialog):
         # 创建文本并左对齐
         text = QLabel(
             "ClassRollCall-班级点名\n"
-            "版本: 1.4（formal）\n"
+            "版本: 1.5（正式版）\n"
             "作者: enderLuoxh\n"
         )
         text.setAlignment(Qt.AlignLeft)
@@ -1080,6 +1139,7 @@ class AboutDialog(QDialog):
         
         self.setLayout(layout)
 
+# ==================== 主窗口（可拖动按钮） ====================
 class DraggableButton(QWidget):
     """可拖动的抽取按钮窗口（半透明样式）"""
     def __init__(self):
@@ -1248,6 +1308,8 @@ class DraggableButton(QWidget):
             try:
                 self.all_names = self.load_names_from_csv(custom_file)
                 print(f"已从自定义文件加载 {len(self.all_names)} 个名字: {custom_file}")
+                if len(self.all_names) == 0:
+                    print("警告：自定义文件内容为空或无效，将尝试使用默认文件")
             except Exception as e:
                 print(f"加载自定义CSV文件失败: {e}")
                 self.all_names = []
@@ -1260,28 +1322,31 @@ class DraggableButton(QWidget):
             except Exception as e:
                 print(f"加载默认CSV文件失败: {e}")
                 self.all_names = []
-        elif not self.all_names:
-            # 如果文件不存在或为空，创建空的CSV文件
+        
+        # 如果仍然为空，创建空的CSV文件并提示
+        if not self.all_names:
             self.create_empty_csv(self.names_file)
             print(f"已创建空的CSV文件：{self.names_file}")
-            
-            # 弹出提示
             QTimer.singleShot(1000, self.show_empty_names_warning)
     
     def load_names_from_csv(self, filename):
-        """从CSV文件加载名字"""
+        """从CSV文件加载名字 - 改进版，跳过空行和注释"""
         names = []
-        with open(filename, 'r', encoding='utf-8-sig') as f:
-            reader = csv.reader(f)
-            for row in reader:
-                if row:  # 确保行不为空
-                    # 取每行的第一个非空单元格作为名字
+        try:
+            with open(filename, 'r', encoding='utf-8-sig') as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    if not row:  # 跳过空行
+                        continue
                     for cell in row:
                         cell = cell.strip()
-                        if cell and not cell.startswith('#'):  # 跳过注释行
+                        if cell and not cell.startswith('#'):
                             names.append(cell)
                             break  # 只取每行的第一个名字
-        return names
+            return names
+        except Exception as e:
+            print(f"读取CSV文件时出错: {e}")
+            return []
     
     def save_names_to_csv(self, names, filename):
         """保存名字到CSV文件"""
@@ -1380,16 +1445,18 @@ class DraggableButton(QWidget):
         self.tray_icon = QSystemTrayIcon(self)
         self.tray_icon.setToolTip("点名器")
         
-        # 创建图标
+        # 创建图标 - 根据DPI缩放字体大小
+        icon_size = 64
+        font_size = int(24 * self.scale_factor)
         icon = QIcon()
-        pixmap = QPixmap(64, 64)
+        pixmap = QPixmap(icon_size, icon_size)
         pixmap.fill(Qt.transparent)
         painter = QPainter(pixmap)
         painter.setBrush(QColor(100, 150, 255, 200))
         painter.setPen(Qt.NoPen)
-        painter.drawRoundedRect(0, 0, 64, 64, 10, 10)
+        painter.drawRoundedRect(0, 0, icon_size, icon_size, 10, 10)
         painter.setPen(QColor(255, 255, 255))
-        painter.setFont(QFont("Microsoft YaHei", 24, QFont.Bold))
+        painter.setFont(QFont("Microsoft YaHei", font_size, QFont.Bold))
         painter.drawText(pixmap.rect(), Qt.AlignCenter, "抽")
         painter.end()
         icon.addPixmap(pixmap)
@@ -1696,18 +1763,24 @@ class DraggableButton(QWidget):
             print("防连点已启用，按钮已锁定")
         
         # 根据模式选择名字
-        if self.settings.get('pick_mode', 'default') == 'random':
-            # 真随机模式：每次随机选择一个
-            name = random.choice(self.all_names)
-            print(f"真随机抽取: {name}")
-        else:
-            # 默认模式：轮次抽取
-            if self.current_index >= len(self.current_round):
-                self.reset_round()
-            
-            name = self.current_round[self.current_index]
-            self.current_index += 1
-            print(f"顺序抽取: {name} (第 {self.current_index}/{len(self.current_round)})")
+        try:
+            if self.settings.get('pick_mode', 'default') == 'random':
+                # 真随机模式：每次随机选择一个
+                name = random.choice(self.all_names)
+                print(f"真随机抽取: {name}")
+            else:
+                # 默认模式：轮次抽取
+                if self.current_index >= len(self.current_round):
+                    self.reset_round()
+                
+                name = self.current_round[self.current_index]
+                self.current_index += 1
+                print(f"顺序抽取: {name} (第 {self.current_index}/{len(self.current_round)})")
+        except Exception as e:
+            print(f"抽取名字时出错: {e}")
+            if self.settings.get('anti_spam', True):
+                self.restore_button_from_spam()
+            return
         
         # 显示毛玻璃弹窗，传入回调函数
         self.current_popup = GlassPopup(name, self.settings, self.on_popup_closed)
@@ -1781,7 +1854,12 @@ class DraggableButton(QWidget):
             2000
         )
 
+# ==================== 主函数 ====================
 def main():
+    # 启用高DPI缩放支持
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+    
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     
@@ -1804,4 +1882,6 @@ def main():
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
+    # 重置崩溃计数器（正常启动时）
+    set_crash_count(0)
     main()
