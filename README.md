@@ -1,6 +1,6 @@
 # ClassRollCall - 班级点名器
 
-![版本](https://img.shields.io/badge/版本-1.4-blue)
+![版本](https://img.shields.io/badge/版本-1.5-blue)
 ![Python](https://img.shields.io/badge/Python-3.6+-green)
 ![PyQt5](https://img.shields.io/badge/PyQt5-5.15+-orange)
 
@@ -65,35 +65,6 @@ ClassRollCall 是一款轻量级、美观实用的班级点名工具。它悬浮
    - **常规**：开机自启动、抽取模式、动画效果、名单文件、位置重置
    - **按钮**：文字、透明度、颜色/渐变/金属样式
    - **弹窗**：字体、文字颜色、背景样式、背景图片
-
-## 🚀 安装运行
-
-### 方法一：直接运行（需要Python环境）
-```bash
-# 安装依赖
-pip install PyQt5
-
-# 运行程序
-python ClassRollCall.py
-```
-
-### 方法二：打包成exe
-```bash
-# 安装pyinstaller
-pip install pyinstaller
-
-# 打包
-pyinstaller --onefile --windowed --name "ClassRollCall" ClassRollCall.py
-```
-
-程序会自动在 `%LOCALAPPDATA%\ClassRollCall\` 目录下创建配置文件：
-- `settings.json`：保存所有设置
-- `position.json`：保存按钮位置
-
-## 🛠️ 开发环境
-- Python 3.6+
-- PyQt5 5.15+
-- Windows 10/11（推荐）
 
 ## 🙏 致谢
 - 感谢 PyQt5 提供的强大GUI框架
