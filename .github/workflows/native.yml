@@ -21,6 +21,9 @@ jobs:
           python scripts/generate_fixtures.py
       - name: Tests
         run: ctest --test-dir build -C Release --output-on-failure
+      - name: GUI smoke and idle measurements
+        shell: pwsh
+        run: ./scripts/smoke.ps1 -Exe ./dist/ClassRollCall.exe
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x86
@@ -41,3 +44,4 @@ jobs:
             LICENSE
             THIRD_PARTY_NOTICES.md
             build/licenses/
+            smoke-results.json

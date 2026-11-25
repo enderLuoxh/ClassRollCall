@@ -7,7 +7,12 @@
 #include <stdexcept>
 namespace crc {
 ClassRoom* State::active() { for(auto& c:classes) if(c.id==current) return &c; return nullptr; }
-Store::Store() { wchar_t local[MAX_PATH]{}; if(FAILED(SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA|CSIDL_FLAG_CREATE,nullptr,SHGFP_TYPE_CURRENT,local))) throw std::runtime_error("Cannot find local app data"); root_=std::filesystem::path(local)/L"ClassRollCall"; }
+Store::Store() {
+    std::wstring local(32768,0); DWORD n=GetEnvironmentVariableW(L"LOCALAPPDATA",local.data(),static_cast<DWORD>(local.size()));
+    if(n&&n<local.size()) local.resize(n);
+    else { wchar_t fallback[MAX_PATH]{}; if(FAILED(SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA|CSIDL_FLAG_CREATE,nullptr,SHGFP_TYPE_CURRENT,fallback))) throw std::runtime_error("Cannot find local app data"); local=fallback; }
+    if(!std::filesystem::path(local).is_absolute()) throw std::runtime_error("Local app data path is not absolute"); root_=std::filesystem::path(local)/L"ClassRollCall";
+}
 std::wstring uniqueId() { GUID id{}; if(FAILED(CoCreateGuid(&id))) throw std::runtime_error("Cannot generate class ID"); wchar_t s[40]{}; StringFromGUID2(id,s,40); std::wstring value(s); value.erase(0,1); value.pop_back(); return value; }
 std::string readBytes(const std::filesystem::path& p,size_t limit) { std::ifstream f(p,std::ios::binary|std::ios::ate); if(!f) throw std::runtime_error("Cannot open file"); auto n=f.tellg(); if(n<0||static_cast<uint64_t>(n)>limit) throw std::runtime_error("File exceeds size limit"); std::string s(static_cast<size_t>(n),0); f.seekg(0); if(!s.empty()&&!f.read(s.data(),static_cast<std::streamsize>(s.size()))) throw std::runtime_error("Cannot read file"); return s; }
 void atomicWrite(const std::filesystem::path& p,const std::string& bytes) {

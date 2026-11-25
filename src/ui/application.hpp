@@ -18,6 +18,10 @@ class Application {
     ULONGLONG start_=0,suppressMouse_=0;
     std::wstring final_,shown_;
     size_t frame_=0;
+    struct MenuItem { std::wstring label; bool checked=false,disabled=false,submenu=false; };
+    std::vector<MenuItem> menuItems_;
+    bool measureMenu(MEASUREITEMSTRUCT* item);
+    bool drawMenu(DRAWITEMSTRUCT* item);
     void renderButton();
     void renderResult(BYTE alpha=245);
     void place(bool reset);

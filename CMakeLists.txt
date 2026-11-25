@@ -18,6 +18,7 @@ add_library(rollcall_import STATIC src/importer/importer.cpp src/importer/text_c
 target_include_directories(rollcall_import PUBLIC src)
 target_link_libraries(rollcall_import PUBLIC rollcall_core PRIVATE miniz pugixml::pugixml xlsreader)
 add_executable(ClassRollCall WIN32 src/main.cpp src/ui/application.cpp src/ui/paint.cpp src/ui/dialogs.cpp src/resources/app.rc)
+target_include_directories(ClassRollCall PRIVATE src/resources)
 target_link_libraries(ClassRollCall PRIVATE rollcall_core rollcall_import gdiplus comctl32 comdlg32)
 if(MSVC)
   target_link_options(ClassRollCall PRIVATE /SUBSYSTEM:WINDOWS,6.01 /MANIFEST:NO)

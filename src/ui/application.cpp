@@ -13,7 +13,7 @@ static const wchar_t* resultClass=L"ClassRollCall.Native.Result";
 void Application::fail(const std::exception& e) { MessageBoxW(floating_,(L"操作未完成：\n"+utf16(e.what())).c_str(),L"ClassRollCall",MB_OK|MB_ICONWARNING); }
 void Application::save() { store_.save(state_); }
 void Application::renderButton() { paintCard(floating_,dpi_,false,L"Call",L"",busy_||down_?242:128,dark_); }
-void Application::renderResult(BYTE alpha) { auto* c=state_.active(); paintCard(result_,resultDpi_,true,shown_,c?c->name:L"",alpha,dark_); }
+void Application::renderResult(BYTE alpha) { auto* c=state_.active(); SetWindowTextW(result_,shown_.c_str()); paintCard(result_,resultDpi_,true,shown_,c?c->name:L"",alpha,dark_); }
 void Application::place(bool reset) {
     HMONITOR monitor=reset?nullptr:findMonitor(state_.monitor);
     bool valid=monitor!=nullptr;
@@ -55,16 +55,34 @@ void Application::move(POINT p) {
 }
 void Application::release(POINT p) { if(!down_) return; bool click=!drag_&&!long_; bool moved=drag_; down_=false; KillTimer(floating_,longTimer); if(GetCapture()==floating_) ReleaseCapture(); if(touch_) suppressMouse_=GetTickCount64()+700; touch_=false; pointerId_=0; renderButton(); if(moved) remember(); if(click) { RECT r{}; GetWindowRect(floating_,&r); if(PtInRect(&r,p)) startPick(); } }
 void Application::cancelPress() { down_=drag_=long_=touch_=false; pointerId_=0; KillTimer(floating_,longTimer); if(GetCapture()==floating_) ReleaseCapture(); renderButton(); }
+bool Application::measureMenu(MEASUREITEMSTRUCT* item) {
+    if(item->CtlType!=ODT_MENU||!item->itemData) return false;
+    auto* value=reinterpret_cast<MenuItem*>(item->itemData); HDC dc=GetDC(floating_);
+    HFONT font=CreateFontW(-px(15,dpi_),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI"); auto old=SelectObject(dc,font); SIZE size{}; GetTextExtentPoint32W(dc,value->label.c_str(),static_cast<int>(value->label.size()),&size); SelectObject(dc,old); DeleteObject(font); ReleaseDC(floating_,dc);
+    item->itemHeight=px(48,dpi_); item->itemWidth=size.cx+px(78,dpi_); return true;
+}
+bool Application::drawMenu(DRAWITEMSTRUCT* item) {
+    if(item->CtlType!=ODT_MENU||!item->itemData) return false;
+    auto* value=reinterpret_cast<MenuItem*>(item->itemData); bool selected=(item->itemState&ODS_SELECTED)!=0;
+    COLORREF bg=selected?(dark_?RGB(56,68,87):RGB(226,235,249)):(dark_?RGB(35,37,42):RGB(250,251,253)); HBRUSH brush=CreateSolidBrush(bg); FillRect(item->hDC,&item->rcItem,brush); DeleteObject(brush);
+    SetBkMode(item->hDC,TRANSPARENT); SetTextColor(item->hDC,value->disabled?RGB(130,134,142):(dark_?RGB(241,243,249):RGB(35,46,65)));
+    HFONT font=CreateFontW(-px(15,dpi_),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI"); auto old=SelectObject(item->hDC,font); auto rect=item->rcItem; rect.left+=px(34,dpi_); rect.right-=px(24,dpi_); DrawTextW(item->hDC,value->label.c_str(),-1,&rect,DT_SINGLELINE|DT_VCENTER|DT_NOPREFIX);
+    if(value->checked) { auto mark=item->rcItem; mark.left+=px(8,dpi_); mark.right=mark.left+px(20,dpi_); DrawTextW(item->hDC,L"✓",-1,&mark,DT_SINGLELINE|DT_VCENTER|DT_CENTER); }
+    if(value->submenu) { auto arrow=item->rcItem; arrow.left=arrow.right-px(24,dpi_); DrawTextW(item->hDC,L"›",-1,&arrow,DT_SINGLELINE|DT_VCENTER|DT_CENTER); }
+    SelectObject(item->hDC,old); DeleteObject(font); return true;
+}
 void Application::menu(POINT p) {
     HMENU menu=CreatePopupMenu(),classes=CreatePopupMenu(),mode=CreatePopupMenu();
-    for(size_t i=0;i<state_.classes.size()&&i<500;++i) { auto label=state_.classes[i].name+L"（"+std::to_wstring(state_.classes[i].names.size())+L"人）"; AppendMenuW(classes,MF_STRING|(state_.classes[i].id==state_.current?MF_CHECKED:0),1000+i,label.c_str()); }
-    if(state_.classes.empty()) AppendMenuW(classes,MF_STRING|MF_GRAYED,0,L"尚无班级");
-    AppendMenuW(menu,MF_POPUP,reinterpret_cast<UINT_PTR>(classes),L"切换班级");
-    AppendMenuW(menu,MF_STRING,10,L"管理班级名单"); AppendMenuW(menu,MF_STRING,11,L"导入名单…");
-    AppendMenuW(mode,MF_STRING|(state_.mode==PickMode::Balanced?MF_CHECKED:0),20,L"均衡抽取"); AppendMenuW(mode,MF_STRING|(state_.mode==PickMode::Random?MF_CHECKED:0),21,L"完全随机");
-    AppendMenuW(menu,MF_POPUP,reinterpret_cast<UINT_PTR>(mode),L"抽取模式");
-    AppendMenuW(menu,MF_STRING|(state_.autostart?MF_CHECKED:0),30,L"开机自动启动"); AppendMenuW(menu,MF_STRING,31,L"重置悬浮按钮位置");
-    AppendMenuW(menu,MF_STRING,32,IsWindowVisible(floating_)?L"隐藏悬浮按钮":L"显示悬浮按钮"); AppendMenuW(menu,MF_STRING,40,L"关于"); AppendMenuW(menu,MF_SEPARATOR,0,nullptr); AppendMenuW(menu,MF_STRING,99,L"退出");
+    menuItems_.clear(); menuItems_.reserve(std::min(state_.classes.size(),size_t{500})+20);
+    auto append=[&](HMENU parent,UINT_PTR id,std::wstring label,bool checked=false,bool disabled=false,bool submenu=false) { menuItems_.push_back({std::move(label),checked,disabled,submenu}); AppendMenuW(parent,MF_OWNERDRAW|(disabled?MF_GRAYED:0)|(submenu?MF_POPUP:0),id,reinterpret_cast<LPCWSTR>(&menuItems_.back())); };
+    for(size_t i=0;i<state_.classes.size()&&i<500;++i) { auto label=state_.classes[i].name+L"（"+std::to_wstring(state_.classes[i].names.size())+L"人）"; append(classes,1000+i,label,state_.classes[i].id==state_.current); }
+    if(state_.classes.empty()) append(classes,0,L"尚无班级",false,true);
+    append(menu,reinterpret_cast<UINT_PTR>(classes),L"切换班级",false,false,true);
+    append(menu,10,L"管理班级名单"); append(menu,11,L"导入名单…");
+    append(mode,20,L"均衡抽取",state_.mode==PickMode::Balanced); append(mode,21,L"完全随机",state_.mode==PickMode::Random);
+    append(menu,reinterpret_cast<UINT_PTR>(mode),L"抽取模式",false,false,true);
+    append(menu,30,L"开机自动启动",state_.autostart); append(menu,31,L"重置悬浮按钮位置");
+    append(menu,32,IsWindowVisible(floating_)?L"隐藏悬浮按钮":L"显示悬浮按钮"); append(menu,40,L"关于"); AppendMenuW(menu,MF_SEPARATOR,0,nullptr); append(menu,99,L"退出");
     SetForegroundWindow(floating_); UINT id=TrackPopupMenuEx(menu,TPM_RETURNCMD|TPM_NONOTIFY|TPM_RIGHTBUTTON,p.x,p.y,floating_,nullptr); DestroyMenu(menu); PostMessageW(floating_,WM_NULL,0,0); if(id) command(id);
 }
 void Application::command(UINT id) {
@@ -86,6 +104,9 @@ LRESULT Application::message(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp) {
     static const UINT taskbarCreated=RegisterWindowMessageW(L"TaskbarCreated");
     if(msg==taskbarCreated) { addTray(); return 0; }
     switch(msg) {
+    case WM_MEASUREITEM: if(measureMenu(reinterpret_cast<MEASUREITEMSTRUCT*>(lp))) return TRUE; break;
+    case WM_DRAWITEM: if(drawMenu(reinterpret_cast<DRAWITEMSTRUCT*>(lp))) return TRUE; break;
+    case 0x02CC: return 0x1|0x8|0x10; // WM_TABLET_QUERYSYSTEMGESTURESTATUS: own the 500 ms hold gesture.
     case WM_MOUSEACTIVATE: return MA_NOACTIVATE;
     case WM_PAINT: { PAINTSTRUCT ps; BeginPaint(hwnd,&ps); EndPaint(hwnd,&ps); return 0; }
     case WM_LBUTTONDOWN: if(GetTickCount64()>=suppressMouse_ && (GetMessageExtraInfo()&0xFFFFFF80)!=0xFF515700) { POINT p{GET_X_LPARAM(lp),GET_Y_LPARAM(lp)}; ClientToScreen(hwnd,&p); press(p,false); } return 0;
