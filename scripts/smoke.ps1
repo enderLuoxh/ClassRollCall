@@ -5,6 +5,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 public static class RollCallWindows {
+    public delegate bool EnumCallback(IntPtr hwnd, IntPtr data);
     [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left,Top,Right,Bottom; }
     [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr FindWindow(string cls,string title);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr window);
@@ -14,6 +15,16 @@ public static class RollCallWindows {
     [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window,uint msg,IntPtr wp,IntPtr lp);
     [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr window,StringBuilder text,int count);
     [DllImport("user32.dll",EntryPoint="GetWindowLongW")] public static extern int GetWindowLong(IntPtr window,int index);
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumCallback callback,IntPtr data);
+    [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr parent,EnumCallback callback,IntPtr data);
+    public static string WindowDiagnostics(uint pid) {
+        var output = new StringBuilder();
+        EnumWindows((h,p) => { uint owner; GetWindowThreadProcessId(h,out owner); if(owner==pid) {
+            var s=new StringBuilder(2048); GetWindowText(h,s,2048); output.AppendLine("Window: "+s);
+            EnumChildWindows(h,(c,q)=>{ var t=new StringBuilder(2048); GetWindowText(c,t,2048); output.AppendLine("  "+t); return true; },IntPtr.Zero);
+        } return true; },IntPtr.Zero);
+        return output.ToString();
+    }
 }
 '@
 $exePath = (Resolve-Path -LiteralPath $Exe).Path
@@ -36,7 +47,10 @@ try {
         if ($instance.HasExited) { throw "Application exited: $($instance.ExitCode)" }
         Start-Sleep -Milliseconds 100
     }
-    if ($floating -eq [IntPtr]::Zero) { throw 'Floating window missing' }
+    if ($floating -eq [IntPtr]::Zero) {
+        [RollCallWindows]::WindowDiagnostics($instance.Id) | Write-Output
+        throw 'Floating window missing'
+    }
     [uint32]$windowPid = 0
     [void][RollCallWindows]::GetWindowThreadProcessId($floating,[ref]$windowPid)
     if ($windowPid -ne $instance.Id) { throw 'Window belongs to another process' }
