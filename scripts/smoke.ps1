@@ -8,6 +8,7 @@ public static class RollCallWindows {
     public delegate bool EnumCallback(IntPtr hwnd, IntPtr data);
     [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left,Top,Right,Bottom; }
     [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr FindWindow(string cls,string title);
+    public static IntPtr ByClass(string cls) { return FindWindow(cls,null); }
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr window,out Rect r);
     [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr window);
@@ -42,7 +43,7 @@ try {
     $instance = Start-Process -FilePath $exePath -WindowStyle Hidden -PassThru
     $floating = [IntPtr]::Zero
     for ($i=0; $i -lt 100; $i++) {
-        $floating = [RollCallWindows]::FindWindow('ClassRollCall.Native.Float',$null)
+        $floating = [RollCallWindows]::ByClass('ClassRollCall.Native.Float')
         if ($floating -ne [IntPtr]::Zero) { break }
         if ($instance.HasExited) { throw "Application exited: $($instance.ExitCode)" }
         Start-Sleep -Milliseconds 100
@@ -73,7 +74,7 @@ try {
         [void][RollCallWindows]::PostMessage($floating,0x0201,[IntPtr]1,$packed)
         [void][RollCallWindows]::PostMessage($floating,0x0202,[IntPtr]0,$packed)
         Start-Sleep -Milliseconds 1400
-        $result = [RollCallWindows]::FindWindow('ClassRollCall.Native.Result',$null)
+        $result = [RollCallWindows]::ByClass('ClassRollCall.Native.Result')
         if (![RollCallWindows]::IsWindowVisible($result)) { throw 'Result window missing' }
         $resultStyle = [RollCallWindows]::GetWindowLong($result,-20)
         if (($resultStyle -band 0x08000020) -ne 0x08000020) { throw 'Result must be click-through and no-activate' }
