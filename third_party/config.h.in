@@ -11,6 +11,5 @@
 #ifdef _MSC_VER
 #define restrict __restrict
 #define strdup _strdup
-typedef intptr_t ssize_t;
 #endif
 #endif

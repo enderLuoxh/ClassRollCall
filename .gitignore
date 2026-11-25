@@ -1,4 +1,10 @@
 # Byte-compiled / optimized / DLL files
+# Native build products; keep the Windows application manifest in source control.
+!src/resources/app.manifest
+/.vs/
+/out/
+/tests/fixtures/generated/
+/CMakeUserPresets.json
 __pycache__/
 *.py[codz]
 *$py.class

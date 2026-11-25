@@ -57,7 +57,7 @@ protected:
         SetWindowPos(hwnd,HWND_TOP,r.left,r.top,r.right-r.left,r.bottom-r.top,SWP_NOACTIVATE);
     }
 public:
-    virtual ~Dialog(){ if(font_) DeleteObject(font_); }
+    virtual ~Dialog(){ if(hwnd&&IsWindow(hwnd)) DestroyWindow(hwnd); if(font_) DeleteObject(font_); }
     bool show(HWND owner,const std::wstring& title) {
         static bool registered=[] { WNDCLASSEXW wc{sizeof wc}; wc.lpfnWndProc=proc; wc.hInstance=GetModuleHandleW(nullptr); wc.hCursor=LoadCursorW(nullptr,IDC_ARROW); wc.hbrBackground=reinterpret_cast<HBRUSH>(COLOR_WINDOW+1); wc.lpszClassName=L"ClassRollCall.Native.Dialog"; return RegisterClassExW(&wc)!=0; }();
         if(!registered) throw std::runtime_error("无法注册设置窗口");
