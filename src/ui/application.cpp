@@ -115,7 +115,7 @@ LRESULT Application::message(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp) {
     case showMessage: ShowWindow(hwnd,SW_SHOWNOACTIVATE); return 0;
     case trayMessage: if(lp==WM_LBUTTONDBLCLK) command(32); else if(lp==WM_RBUTTONUP||lp==WM_CONTEXTMENU) { POINT p{}; GetCursorPos(&p); menu(p); } return 0;
     case WM_ENDSESSION: if(wp) remember(); return 0;
-    case WM_DESTROY: KillTimer(hwnd,animateTimer); KillTimer(hwnd,longTimer); Shell_NotifyIconW(NIM_DELETE,&tray_); if(result_) DestroyWindow(result_); PostQuitMessage(0); return 0;
+    case WM_DESTROY: remember(); KillTimer(hwnd,animateTimer); KillTimer(hwnd,longTimer); Shell_NotifyIconW(NIM_DELETE,&tray_); if(result_) DestroyWindow(result_); PostQuitMessage(0); return 0;
     }
     return DefWindowProcW(hwnd,msg,wp,lp);
 }
@@ -137,6 +137,6 @@ int Application::run(int) {
     place(false); addTray(); ShowWindow(floating_,SW_SHOWNOACTIVATE);
     MSG msg{}; BOOL result;
     while((result=GetMessageW(&msg,nullptr,0,0))>0) { TranslateMessage(&msg); DispatchMessageW(&msg); }
-    remember(); return result==-1?1:static_cast<int>(msg.wParam);
+    return result==-1?1:static_cast<int>(msg.wParam);
 }
 }

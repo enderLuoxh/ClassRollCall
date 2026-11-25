@@ -1,5 +1,6 @@
 #include "paint.hpp"
 #include "platform/platform.hpp"
+#include <objidl.h>
 #include <gdiplus.h>
 #include <algorithm>
 namespace crc {
