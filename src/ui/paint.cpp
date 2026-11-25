@@ -26,7 +26,7 @@ void paintCard(HWND window,UINT dpi,bool result,const std::wstring& title,const 
         float fontSize=static_cast<float>(px(result?48:15,dpi));
         RectF area(pad+px(12,dpi),pad+(result?px(20,dpi):0),w-2*pad-px(24,dpi),h-2*pad-(result?px(55,dpi):0));
         for(;;) { Font font(&family,fontSize,FontStyleBold,UnitPixel); RectF measure; g.MeasureString(title.c_str(),-1,&font,PointF(),&measure); if(measure.Width<=area.Width||fontSize<=px(result?18:10,dpi)) { g.DrawString(title.c_str(),-1,&font,area,&format,&text); break; } fontSize-=2; }
-        if(result) { Font small(&family,static_cast<float>(px(13,dpi)),FontStyleRegular,UnitPixel); SolidBrush muted(dark?Color(255,170,182,200):Color(255,100,112,130)); RectF sub(pad,static_cast<float>(h-px(52,dpi)),w-2*pad,static_cast<float>(px(25,dpi))); g.DrawString(subtitle.c_str(),-1,&small,sub,&format,&muted); }
+        if(result) { Font captionFont(&family,static_cast<float>(px(13,dpi)),FontStyleRegular,UnitPixel); SolidBrush muted(dark?Color(255,170,182,200):Color(255,100,112,130)); RectF sub(pad,static_cast<float>(h-px(52,dpi)),w-2*pad,static_cast<float>(px(25,dpi))); g.DrawString(subtitle.c_str(),-1,&captionFont,sub,&format,&muted); }
     }
     HBITMAP bitmap=nullptr; image.GetHBITMAP(Gdiplus::Color(0,0,0,0),&bitmap);
     HDC screen=GetDC(nullptr), memory=CreateCompatibleDC(screen); HGDIOBJ old=SelectObject(memory,bitmap);

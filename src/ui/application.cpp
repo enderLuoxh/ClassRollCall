@@ -1,5 +1,6 @@
 #include "application.hpp"
 #include "paint.hpp"
+#include "dialogs.hpp"
 #include "platform/platform.hpp"
 #include <windowsx.h>
 #include <algorithm>
@@ -31,7 +32,7 @@ void Application::startPick() {
     if(!c||c->names.empty()) { MessageBoxW(floating_,L"当前班级名单为空，请先从右键菜单导入名单。",L"ClassRollCall",MB_OK|MB_ICONINFORMATION); return; }
     size_t selected=picker_.pick(c->names.size(),state_.mode); final_=c->names[selected]; shown_=c->names.front();
     auto monitor=MonitorFromWindow(floating_,MONITOR_DEFAULTTONEAREST); resultDpi_=monitorDpi(monitor); auto work=workArea(monitor);
-    int w=std::min(px(460,resultDpi_),work.right-work.left),h=std::min(px(206,resultDpi_),work.bottom-work.top);
+    int w=std::min(px(460,resultDpi_),static_cast<int>(work.right-work.left)),h=std::min(px(206,resultDpi_),static_cast<int>(work.bottom-work.top));
     SetWindowPos(result_,HWND_TOPMOST,work.left+(work.right-work.left-w)/2,work.top+(work.bottom-work.top-h)/2,w,h,SWP_NOACTIVATE);
     busy_=true; frame_=0; start_=GetTickCount64(); renderButton(); renderResult(); ShowWindow(result_,SW_SHOWNOACTIVATE); SetTimer(floating_,animateTimer,33,nullptr);
 }
@@ -70,6 +71,8 @@ void Application::command(UINT id) {
     if(busy_&&((id>=1000&&id<1500)||id==10||id==11||id==20||id==21)) return;
     if(id>=1000&&id<1000+state_.classes.size()) { state_.current=state_.classes[id-1000].id; picker_.reset(); save(); }
     else switch(id) {
+    case 10: if(manageClasses(floating_,state_)) { picker_.reset(); save(); } break;
+    case 11: if(importFiles(floating_,state_)) { picker_.reset(); save(); } break;
     case 20: case 21: state_.mode=id==20?PickMode::Balanced:PickMode::Random; picker_.reset(); save(); break;
     case 30: setStartup(!state_.autostart); state_.autostart=!state_.autostart; save(); break;
     case 31: place(true); remember(); break;
@@ -108,7 +111,12 @@ LRESULT Application::message(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp) {
         if(ok) for(const auto& t:inputs) { if(!(t.dwFlags&TOUCHEVENTF_PRIMARY)) continue; POINT p{TOUCH_COORD_TO_PIXEL(t.x),TOUCH_COORD_TO_PIXEL(t.y)}; if(t.dwFlags&TOUCHEVENTF_DOWN) press(p,true); else if(t.dwFlags&TOUCHEVENTF_UP) release(p); else move(p); }
         suppressMouse_=GetTickCount64()+700; return 0;
     }
-    case WM_TIMER: if(wp==animateTimer) tick(); else if(wp==longTimer) { KillTimer(hwnd,longTimer); if(down_&&!drag_) { long_=true; POINT p=press_; down_=false; if(GetCapture()==hwnd) ReleaseCapture(); suppressMouse_=GetTickCount64()+700; renderButton(); menu(p); } } return 0;
+    case WM_TIMER: if(wp==animateTimer) tick(); else if(wp==longTimer) { KillTimer(hwnd,longTimer); if(down_&&!drag_) { long_=true; POINT p=press_; down_=false; touch_=false; pointerId_=0; if(GetCapture()==hwnd) ReleaseCapture(); suppressMouse_=GetTickCount64()+700; renderButton(); menu(p); } } return 0;
+    case WM_DROPFILES: {
+        auto drop=reinterpret_cast<HDROP>(wp); std::vector<std::filesystem::path> paths; UINT count=DragQueryFileW(drop,0xFFFFFFFF,nullptr,0);
+        for(UINT i=0;i<count&&i<64;++i) { UINT n=DragQueryFileW(drop,i,nullptr,0); std::wstring path(n+1,0); DragQueryFileW(drop,i,path.data(),n+1); path.resize(n); paths.emplace_back(path); } DragFinish(drop);
+        if(!busy_&&importFiles(hwnd,state_,paths)) { picker_.reset(); save(); } return 0;
+    }
     case WM_DPICHANGED: { dpi_=HIWORD(wp); auto r=*reinterpret_cast<RECT*>(lp); int size=px(64,dpi_); r.right=r.left+size; r.bottom=r.top+size; r=clampRect(r,workArea(MonitorFromRect(&r,MONITOR_DEFAULTTONEAREST))); SetWindowPos(hwnd,HWND_TOPMOST,r.left,r.top,size,size,SWP_NOACTIVATE); renderButton(); return 0; }
     case WM_DISPLAYCHANGE: place(false); return 0;
     case WM_SETTINGCHANGE: dark_=darkTheme(); place(false); if(busy_) renderResult(); return 0;
@@ -134,7 +142,11 @@ int Application::run(int) {
     if(!floating_||!result_) throw std::runtime_error("Cannot create window");
     // Win7 receives WM_TOUCH; on Win8+ WM_POINTER is preferred and promoted mouse input is filtered.
     if(!GetProcAddress(GetModuleHandleW(L"user32.dll"),"GetPointerInfo")) RegisterTouchWindow(floating_,TWF_WANTPALM);
-    place(false); addTray(); ShowWindow(floating_,SW_SHOWNOACTIVATE);
+    place(false); addTray(); DragAcceptFiles(floating_,TRUE); ShowWindow(floating_,SW_SHOWNOACTIVATE);
+    if(!state_.initialized) { firstRun(floating_,state_); save(); }
+    if(state_.autostart&&startupValue()!=startupCommand()) {
+        if(MessageBoxW(floating_,L"程序位置已改变，开机启动项需要修复。是否更新为当前 EXE 路径？",L"开机启动",MB_YESNO|MB_ICONQUESTION)==IDYES) setStartup(true);
+    }
     MSG msg{}; BOOL result;
     while((result=GetMessageW(&msg,nullptr,0,0))>0) { TranslateMessage(&msg); DispatchMessageW(&msg); }
     return result==-1?1:static_cast<int>(msg.wParam);
