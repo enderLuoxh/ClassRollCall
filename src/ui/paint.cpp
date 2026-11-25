@@ -18,12 +18,13 @@ void paintCard(HWND window,UINT dpi,bool result,const std::wstring& title,const 
         float pad=static_cast<float>(px(6,dpi));
         for(int i=5;i>=1;--i) { GraphicsPath shadow; float s=static_cast<float>(px(i,dpi)); rounded(shadow,pad-s,pad-s+px(2,dpi),w-2*pad+2*s,h-2*pad+2*s,static_cast<float>(px(result?22:18,dpi))); SolidBrush brush(Color(static_cast<BYTE>(5),0,0,0)); g.FillPath(&brush,&shadow); }
         GraphicsPath card; rounded(card,pad,pad,w-2*pad,h-2*pad,static_cast<float>(px(result?18:16,dpi)));
-        SolidBrush background(dark?Color(247,37,39,44):Color(248,249,250,252)); g.FillPath(&background,&card);
-        Pen edge(dark?Color(255,78,81,90):Color(255,215,220,230),static_cast<float>(px(1,dpi))); g.DrawPath(&edge,&card);
+        SolidBrush background(result?(dark?Color(247,33,36,43):Color(248,255,255,255)):(dark?Color(255,137,178,255):Color(255,44,99,211))); g.FillPath(&background,&card);
+        Pen edge(result?(dark?Color(255,61,66,78):Color(255,222,228,237)):(dark?Color(255,164,195,255):Color(255,62,115,227)),static_cast<float>(px(1,dpi))); g.DrawPath(&edge,&card);
+        if(result) { SolidBrush accent(dark?Color(255,137,178,255):Color(255,44,99,211)); g.FillEllipse(&accent,static_cast<float>(w)/2-px(3,dpi),static_cast<float>(px(24,dpi)),static_cast<float>(px(6,dpi)),static_cast<float>(px(6,dpi))); }
         StringFormat format; format.SetAlignment(StringAlignmentCenter); format.SetLineAlignment(StringAlignmentCenter); format.SetTrimming(StringTrimmingEllipsisCharacter);
-        SolidBrush text(dark?Color(255,239,243,255):Color(255,35,46,65));
+        SolidBrush text(result?(dark?Color(255,240,242,248):Color(255,28,38,56)):(dark?Color(255,18,35,65):Color(255,255,255,255)));
         FontFamily family(L"Segoe UI");
-        float fontSize=static_cast<float>(px(result?48:15,dpi));
+        float fontSize=static_cast<float>(px(result?48:20,dpi));
         RectF area(pad+px(12,dpi),pad+(result?px(20,dpi):0),w-2*pad-px(24,dpi),h-2*pad-(result?px(55,dpi):0));
         for(;;) { Font font(&family,fontSize,FontStyleBold,UnitPixel); RectF measure; g.MeasureString(title.c_str(),-1,&font,PointF(),&measure); if(measure.Width<=area.Width||fontSize<=px(result?18:10,dpi)) { g.DrawString(title.c_str(),-1,&font,area,&format,&text); break; } fontSize-=2; }
         if(result) { Font captionFont(&family,static_cast<float>(px(13,dpi)),FontStyleRegular,UnitPixel); SolidBrush muted(dark?Color(255,170,182,200):Color(255,100,112,130)); RectF sub(pad,static_cast<float>(h-px(52,dpi)),w-2*pad,static_cast<float>(px(25,dpi))); g.DrawString(subtitle.c_str(),-1,&captionFont,sub,&format,&muted); }

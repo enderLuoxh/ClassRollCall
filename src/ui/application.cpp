@@ -1,6 +1,7 @@
 #include "application.hpp"
 #include "paint.hpp"
 #include "dialogs.hpp"
+#include "theme.hpp"
 #include "platform/platform.hpp"
 #include <windowsx.h>
 #include <algorithm>
@@ -10,7 +11,7 @@ constexpr UINT trayMessage=WM_APP+1,showMessage=WM_APP+2;
 constexpr UINT animateTimer=1,longTimer=2;
 static const wchar_t* floatingClass=L"ClassRollCall.Native.Float";
 static const wchar_t* resultClass=L"ClassRollCall.Native.Result";
-void Application::fail(const std::exception& e) { MessageBoxW(floating_,(L"操作未完成：\n"+utf16(e.what())).c_str(),L"ClassRollCall",MB_OK|MB_ICONWARNING); }
+void Application::fail(const std::exception& e) { showNotice(floating_,L"操作未完成",utf16(e.what())); }
 void Application::save() { store_.save(state_); }
 void Application::renderButton() { paintCard(floating_,dpi_,false,L"Call",L"",busy_||down_?242:128,dark_); }
 void Application::renderResult(BYTE alpha) { auto* c=state_.active(); SetWindowTextW(result_,shown_.c_str()); paintCard(result_,resultDpi_,true,shown_,c?c->name:L"",alpha,dark_); }
@@ -18,18 +19,18 @@ void Application::place(bool reset) {
     HMONITOR monitor=reset?nullptr:findMonitor(state_.monitor);
     bool valid=monitor!=nullptr;
     if(!monitor) monitor=MonitorFromPoint(POINT{0,0},MONITOR_DEFAULTTOPRIMARY);
-    dpi_=monitorDpi(monitor); RECT work=workArea(monitor); int size=px(64,dpi_);
-    int x=(!reset&&valid&&state_.x>=0)?work.left+px(state_.x,dpi_):work.right-size-px(24,dpi_);
-    int y=(!reset&&valid&&state_.y>=0)?work.top+px(state_.y,dpi_):work.bottom-size-px(24,dpi_);
-    RECT r=clampRect({x,y,x+size,y+size},work);
-    SetWindowPos(floating_,HWND_TOPMOST,r.left,r.top,size,size,SWP_NOACTIVATE); renderButton();
+    dpi_=monitorDpi(monitor); RECT work=workArea(monitor); int w=px(108,dpi_),h=px(68,dpi_);
+    int x=(!reset&&valid&&state_.x>=0)?work.left+px(state_.x,dpi_):work.right-w-px(24,dpi_);
+    int y=(!reset&&valid&&state_.y>=0)?work.top+px(state_.y,dpi_):work.bottom-h-px(24,dpi_);
+    RECT r=clampRect({x,y,x+w,y+h},work);
+    SetWindowPos(floating_,HWND_TOPMOST,r.left,r.top,w,h,SWP_NOACTIVATE); renderButton();
 }
 void Application::remember() { RECT r{}; GetWindowRect(floating_,&r); auto monitor=MonitorFromWindow(floating_,MONITOR_DEFAULTTONEAREST); auto work=workArea(monitor); state_.monitor=monitorName(monitor); state_.x=MulDiv(r.left-work.left,96,static_cast<int>(dpi_)); state_.y=MulDiv(r.top-work.top,96,static_cast<int>(dpi_)); save(); }
-void Application::addTray() { tray_.cbSize=sizeof tray_; tray_.hWnd=floating_; tray_.uID=1; tray_.uFlags=NIF_ICON|NIF_TIP|NIF_MESSAGE; tray_.uCallbackMessage=trayMessage; tray_.hIcon=LoadIconW(nullptr,IDI_INFORMATION); wcscpy_s(tray_.szTip,L"ClassRollCall · 点名"); if(!Shell_NotifyIconW(NIM_ADD,&tray_)) throw std::runtime_error("Cannot create tray icon"); }
+void Application::addTray() { tray_.cbSize=sizeof tray_; tray_.hWnd=floating_; tray_.uID=1; tray_.uFlags=NIF_ICON|NIF_TIP|NIF_MESSAGE; tray_.uCallbackMessage=trayMessage; if(!tray_.hIcon) tray_.hIcon=makeTrayIcon(); wcscpy_s(tray_.szTip,L"ClassRollCall · 点名"); if(!Shell_NotifyIconW(NIM_ADD,&tray_)) throw std::runtime_error("Cannot create tray icon"); }
 void Application::startPick() {
     if(busy_) return;
     auto* c=state_.active();
-    if(!c||c->names.empty()) { MessageBoxW(floating_,L"当前班级名单为空，请先从右键菜单导入名单。",L"ClassRollCall",MB_OK|MB_ICONINFORMATION); return; }
+    if(!c||c->names.empty()) { if(showNotice(floating_,L"先添加一份名单",L"导入班级名单后，就可以点击悬浮按钮开始抽取。",{{IDCANCEL,L"稍后添加"},{IDYES,L"导入名单"}})==IDYES) command(11); return; }
     size_t selected=picker_.pick(c->names.size(),state_.mode); final_=c->names[selected]; shown_=c->names.front();
     auto monitor=MonitorFromWindow(floating_,MONITOR_DEFAULTTONEAREST); resultDpi_=monitorDpi(monitor); auto work=workArea(monitor);
     int w=std::min(px(460,resultDpi_),static_cast<int>(work.right-work.left)),h=std::min(px(206,resultDpi_),static_cast<int>(work.bottom-work.top));
@@ -49,9 +50,9 @@ void Application::move(POINT p) {
     if(!drag_&&dx*dx+dy*dy>px(6,dpi_)*px(6,dpi_)) { drag_=true; KillTimer(floating_,longTimer); }
     if(!drag_) return;
     int x=windowStart_.x+dx,y=windowStart_.y+dy;
-    auto monitor=MonitorFromPoint(p,MONITOR_DEFAULTTONEAREST); UINT next=monitorDpi(monitor); int size=px(64,next); auto work=workArea(monitor);
-    auto r=clampRect({x,y,x+size,y+size},work); dpi_=next;
-    SetWindowPos(floating_,HWND_TOPMOST,r.left,r.top,size,size,SWP_NOACTIVATE); renderButton();
+    auto monitor=MonitorFromPoint(p,MONITOR_DEFAULTTONEAREST); UINT next=monitorDpi(monitor); int w=px(108,next),h=px(68,next); auto work=workArea(monitor);
+    auto r=clampRect({x,y,x+w,y+h},work); dpi_=next;
+    SetWindowPos(floating_,HWND_TOPMOST,r.left,r.top,w,h,SWP_NOACTIVATE); renderButton();
 }
 void Application::release(POINT p) { if(!down_) return; bool click=!drag_&&!long_; bool moved=drag_; down_=false; KillTimer(floating_,longTimer); if(GetCapture()==floating_) ReleaseCapture(); if(touch_) suppressMouse_=GetTickCount64()+700; touch_=false; pointerId_=0; renderButton(); if(moved) remember(); if(click) { RECT r{}; GetWindowRect(floating_,&r); if(PtInRect(&r,p)) startPick(); } }
 void Application::cancelPress() { down_=drag_=long_=touch_=false; pointerId_=0; KillTimer(floating_,longTimer); if(GetCapture()==floating_) ReleaseCapture(); renderButton(); }
@@ -64,7 +65,8 @@ bool Application::measureMenu(MEASUREITEMSTRUCT* item) {
 bool Application::drawMenu(DRAWITEMSTRUCT* item) {
     if(item->CtlType!=ODT_MENU||!item->itemData) return false;
     auto* value=reinterpret_cast<MenuItem*>(item->itemData); bool selected=(item->itemState&ODS_SELECTED)!=0;
-    COLORREF bg=selected?(dark_?RGB(56,68,87):RGB(226,235,249)):(dark_?RGB(35,37,42):RGB(250,251,253)); HBRUSH brush=CreateSolidBrush(bg); FillRect(item->hDC,&item->rcItem,brush); DeleteObject(brush);
+    auto palette=Palette::system(dark_); HBRUSH brush=CreateSolidBrush(palette.surface); FillRect(item->hDC,&item->rcItem,brush); DeleteObject(brush);
+    if(selected) { auto box=item->rcItem; InflateRect(&box,-px(4,dpi_),-px(3,dpi_)); roundedFill(item->hDC,box,px(8,dpi_),palette.selection,palette.selection); }
     SetBkMode(item->hDC,TRANSPARENT); SetTextColor(item->hDC,value->disabled?RGB(130,134,142):(dark_?RGB(241,243,249):RGB(35,46,65)));
     HFONT font=CreateFontW(-px(15,dpi_),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI"); auto old=SelectObject(item->hDC,font); auto rect=item->rcItem; rect.left+=px(34,dpi_); rect.right-=px(24,dpi_); DrawTextW(item->hDC,value->label.c_str(),-1,&rect,DT_SINGLELINE|DT_VCENTER|DT_NOPREFIX);
     if(value->checked) { auto mark=item->rcItem; mark.left+=px(8,dpi_); mark.right=mark.left+px(20,dpi_); DrawTextW(item->hDC,L"✓",-1,&mark,DT_SINGLELINE|DT_VCENTER|DT_CENTER); }
@@ -95,7 +97,7 @@ void Application::command(UINT id) {
     case 30: setStartup(!state_.autostart); state_.autostart=!state_.autostart; save(); break;
     case 31: place(true); remember(); break;
     case 32: ShowWindow(floating_,IsWindowVisible(floating_)?SW_HIDE:SW_SHOWNOACTIVATE); break;
-    case 40: MessageBoxW(floating_,L"ClassRollCall 2.0\n原生 C++ · 完全离线\nCopyright © 2026 enderLuoxh\nMIT License",L"关于",MB_OK); break;
+    case 40: showNotice(floating_,L"ClassRollCall",L"版本 2.0 · 原生桌面点名器\n\n完全离线，轻量运行。\nCopyright © 2026 enderLuoxh\nMIT License"); break;
     case 99: DestroyWindow(floating_); break;
     }
 }
@@ -104,6 +106,7 @@ LRESULT Application::message(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp) {
     static const UINT taskbarCreated=RegisterWindowMessageW(L"TaskbarCreated");
     if(msg==taskbarCreated) { addTray(); return 0; }
     switch(msg) {
+    case WM_COMMAND: command(LOWORD(wp)); return 0;
     case WM_MEASUREITEM: if(measureMenu(reinterpret_cast<MEASUREITEMSTRUCT*>(lp))) return TRUE; break;
     case WM_DRAWITEM: if(drawMenu(reinterpret_cast<DRAWITEMSTRUCT*>(lp))) return TRUE; break;
     case 0x02CC: return 0x1|0x8|0x10; // WM_TABLET_QUERYSYSTEMGESTURESTATUS: own the 500 ms hold gesture.
@@ -138,13 +141,13 @@ LRESULT Application::message(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp) {
         for(UINT i=0;i<count&&i<64;++i) { UINT n=DragQueryFileW(drop,i,nullptr,0); std::wstring path(n+1,0); DragQueryFileW(drop,i,path.data(),n+1); path.resize(n); paths.emplace_back(path); } DragFinish(drop);
         if(!busy_&&importFiles(hwnd,state_,paths)) { picker_.reset(); save(); } return 0;
     }
-    case WM_DPICHANGED: { dpi_=HIWORD(wp); auto r=*reinterpret_cast<RECT*>(lp); int size=px(64,dpi_); r.right=r.left+size; r.bottom=r.top+size; r=clampRect(r,workArea(MonitorFromRect(&r,MONITOR_DEFAULTTONEAREST))); SetWindowPos(hwnd,HWND_TOPMOST,r.left,r.top,size,size,SWP_NOACTIVATE); renderButton(); return 0; }
+    case WM_DPICHANGED: { dpi_=HIWORD(wp); auto r=*reinterpret_cast<RECT*>(lp); int w=px(108,dpi_),h=px(68,dpi_); r.right=r.left+w; r.bottom=r.top+h; r=clampRect(r,workArea(MonitorFromRect(&r,MONITOR_DEFAULTTONEAREST))); SetWindowPos(hwnd,HWND_TOPMOST,r.left,r.top,w,h,SWP_NOACTIVATE); renderButton(); return 0; }
     case WM_DISPLAYCHANGE: place(false); return 0;
     case WM_SETTINGCHANGE: dark_=darkTheme(); place(false); if(busy_) renderResult(); return 0;
     case showMessage: ShowWindow(hwnd,SW_SHOWNOACTIVATE); return 0;
     case trayMessage: if(lp==WM_LBUTTONDBLCLK) command(32); else if(lp==WM_RBUTTONUP||lp==WM_CONTEXTMENU) { POINT p{}; GetCursorPos(&p); menu(p); } return 0;
     case WM_ENDSESSION: if(wp) remember(); return 0;
-    case WM_DESTROY: remember(); KillTimer(hwnd,animateTimer); KillTimer(hwnd,longTimer); Shell_NotifyIconW(NIM_DELETE,&tray_); if(result_) DestroyWindow(result_); PostQuitMessage(0); return 0;
+    case WM_DESTROY: remember(); KillTimer(hwnd,animateTimer); KillTimer(hwnd,longTimer); Shell_NotifyIconW(NIM_DELETE,&tray_); if(tray_.hIcon) DestroyIcon(tray_.hIcon); if(result_) DestroyWindow(result_); PostQuitMessage(0); return 0;
     }
     return DefWindowProcW(hwnd,msg,wp,lp);
 }
@@ -158,7 +161,7 @@ int Application::run(int) {
     state_=store_.load(); dark_=darkTheme();
     WNDCLASSEXW wc{sizeof wc}; wc.hInstance=instance_; wc.lpfnWndProc=proc; wc.hCursor=LoadCursorW(nullptr,IDC_HAND); wc.lpszClassName=floatingClass;
     if(!RegisterClassExW(&wc)) throw std::runtime_error("Cannot register window"); wc.lpszClassName=resultClass; wc.hCursor=LoadCursorW(nullptr,IDC_ARROW); RegisterClassExW(&wc);
-    floating_=CreateWindowExW(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_LAYERED|WS_EX_NOACTIVATE,floatingClass,L"ClassRollCall",WS_POPUP,0,0,64,64,nullptr,nullptr,instance_,this);
+    floating_=CreateWindowExW(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_LAYERED|WS_EX_NOACTIVATE,floatingClass,L"ClassRollCall",WS_POPUP,0,0,108,68,nullptr,nullptr,instance_,this);
     result_=CreateWindowExW(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_LAYERED|WS_EX_TRANSPARENT|WS_EX_NOACTIVATE,resultClass,L"点名结果",WS_POPUP,0,0,460,206,nullptr,nullptr,instance_,this);
     if(!floating_||!result_) throw std::runtime_error("Cannot create window");
     // Win7 receives WM_TOUCH; on Win8+ WM_POINTER is preferred and promoted mouse input is filtered.
@@ -166,7 +169,7 @@ int Application::run(int) {
     place(false); addTray(); DragAcceptFiles(floating_,TRUE); ShowWindow(floating_,SW_SHOWNOACTIVATE);
     if(!state_.initialized) { firstRun(floating_,state_); save(); }
     if(state_.autostart&&startupValue()!=startupCommand()) {
-        if(MessageBoxW(floating_,L"程序位置已改变，开机启动项需要修复。是否更新为当前 EXE 路径？",L"开机启动",MB_YESNO|MB_ICONQUESTION)==IDYES) setStartup(true);
+        if(showNotice(floating_,L"更新开机启动位置",L"程序的位置已改变。将开机启动项更新为当前路径，登录后就能继续使用。",{{IDCANCEL,L"暂不更新"},{IDYES,L"更新位置"}})==IDYES) setStartup(true);
     }
     MSG msg{}; BOOL result;
     while((result=GetMessageW(&msg,nullptr,0,0))>0) { TranslateMessage(&msg); DispatchMessageW(&msg); }
