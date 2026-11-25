@@ -11,6 +11,25 @@
 
 ## 自动化覆盖
 
+以下自动化在 [Windows 构建 45590099661](https://github.com/enderLuoxh/ClassRollCall/actions/runs/45590099661)
+通过，测试源码提交 `2c2923acbad1ee7a76efa8490125434fd0800433`。
+core 0.09 秒、import 0.04 秒，17 个实际测试文件生成成功，GUI 冒烟通过。
+
+| Release 实测 | 结果 |
+|---|---|
+| EXE 大小 | 470528 字节，约 459.5 KiB |
+| 空闲工作集 | 12238848 字节，约 11.67 MiB |
+| 空闲 2 秒累计 CPU | 0 ms（一次采样，不是所有机器的保证值） |
+| 进程总线程 | 4，包含系统组件；业务代码没有创建工作线程 |
+| 冒烟所在 DPI | 96 / 100% |
+| GUI 均衡三次抽取 | 三条记录各一次，无重复 |
+| 结果自动消失 / 单实例 | 通过 |
+| 不激活 / 输入穿透扩展样式 | 通过；真实 PPT 和触摸穿透仍待实测 |
+| 直接 DLL 导入 | 仅 gdiplus、COMCTL32、COMDLG32、ADVAPI32、SHELL32、USER32、GDI32、ole32、KERNEL32 |
+
+直接导入表没有 VC++ / UCRT DLL，不代表 Win7 的系统 API 和间接依赖已经实际通过。
+机器可读结果保存为 [SMOKE_RESULTS.json](validation/SMOKE_RESULTS.json)。
+
 | 检查 | 方法 |
 |---|---|
 | 均衡抽取 | 固定种子下 100 个 37 人轮次，校验每轮索引唯一 |
