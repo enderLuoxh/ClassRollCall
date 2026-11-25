@@ -44,7 +44,12 @@ try {
     $floating = [IntPtr]::Zero
     for ($i=0; $i -lt 100; $i++) {
         $floating = [RollCallWindows]::ByClass('ClassRollCall.Native.Float')
-        if ($floating -ne [IntPtr]::Zero) { break }
+        if ($floating -ne [IntPtr]::Zero) {
+            if ([RollCallWindows]::IsWindowVisible($floating)) { break }
+            # Start-Process supplies SW_HIDE for the first ShowWindow call. Use the
+            # application's normal restore message, then wait for UI initialization.
+            [void][RollCallWindows]::PostMessage($floating,0x8002,[IntPtr]0,[IntPtr]0)
+        }
         if ($instance.HasExited) { throw "Application exited: $($instance.ExitCode)" }
         Start-Sleep -Milliseconds 100
     }
