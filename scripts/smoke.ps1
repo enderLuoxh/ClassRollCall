@@ -143,6 +143,23 @@ try {
     [void][RollCallWindows]::GetWindowRect([RollCallWindows]::GetDlgItem($manager,1),[ref]$saveRect)
     if (($saveRect.Bottom-$saveRect.Top) -lt [int](48*$dpi/96)) { throw 'Touch action button is too small' }
     Review-Image $manager 'MANAGER'
+    Send-Command $manager 202
+    Start-Sleep -Milliseconds 200
+    if (![RollCallWindows]::IsWindowVisible([RollCallWindows]::GetDlgItem($manager,104)) -or [RollCallWindows]::IsWindowVisible([RollCallWindows]::GetDlgItem($manager,100))) { throw 'Import navigation did not switch the page' }
+    Review-Image $manager 'IMPORT'
+    Send-Command $manager 203
+    Start-Sleep -Milliseconds 200
+    if (![RollCallWindows]::IsWindowVisible([RollCallWindows]::GetDlgItem($manager,2201))) { throw 'Preferences page missing' }
+    Send-Command $manager 2202
+    Start-Sleep -Milliseconds 100
+    Send-Command $manager 2201
+    Start-Sleep -Milliseconds 100
+    Review-Image $manager 'PREFERENCES'
+    Send-Command $manager 204
+    Start-Sleep -Milliseconds 100
+    Review-Image $manager 'ABOUT'
+    Send-Command $manager 201
+    Start-Sleep -Milliseconds 200
     Send-Command $manager 101
     $editor = Wait-Dialog '编辑班级名单'
     [void][RollCallWindows]::SetWindowText([RollCallWindows]::GetDlgItem($editor,100),'界面测试班')

@@ -7,11 +7,13 @@
 namespace crc {
 class DialogWindow {
 protected:
-    enum class Role { Body, Title, Muted, Primary, Secondary, Danger, Input, Combo, List, Toggle };
+    enum class Role { Body, Title, Muted, Primary, Secondary, Danger, Input, Combo, List, Toggle, Navigation, SelectedNavigation };
 private:
-    struct Control { HWND handle; int x,y,w,h; Role role; bool multiline=false,hover=false; };
+    struct Control { HWND handle; int x,y,w,h; Role role; bool multiline=false,hover=false; int group=0; };
+    struct Card { RECT rect; int group; };
     std::vector<Control> controls_;
-    std::vector<RECT> cards_;
+    std::vector<Card> cards_;
+    int buildingGroup_=0,activeGroup_=0,shellWidth_=0;
     HFONT font_=nullptr,titleFont_=nullptr,smallFont_=nullptr;
     bool done_=false,accepted_=false,dark_=false;
     Palette palette_=Palette::system(false);
@@ -36,6 +38,10 @@ protected:
     void label(const std::wstring& title,int x,int y,int w,int h=24,Role role=Role::Body);
     void header(const std::wstring& title,const std::wstring& subtitle);
     void card(int x,int y,int w,int h);
+    void group(int id) { buildingGroup_=id; }
+    void showGroup(int id);
+    void role(int id,Role value);
+    void settingsShell(int sidebar) { shellWidth_=sidebar; }
     HWND item(int id);
     void layout(const RECT* suggested=nullptr);
 public:

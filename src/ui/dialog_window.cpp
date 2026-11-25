@@ -8,12 +8,12 @@
 namespace crc {
 static std::wstring caption(HWND h) { int n=GetWindowTextLengthW(h); std::wstring value(n+1,0); GetWindowTextW(h,value.data(),n+1); value.resize(n); return value; }
 DialogWindow::Control* DialogWindow::control(HWND h) { for(auto& c:controls_) if(c.handle==h) return &c; return nullptr; }
-COLORREF DialogWindow::backing(const Control& c) const { if(c.y>=height-80) return palette_.surface; POINT p{c.x+c.w/2,c.y+c.h/2}; for(auto r:cards_) if(PtInRect(&r,p)) return palette_.surface; return palette_.background; }
+COLORREF DialogWindow::backing(const Control& c) const { if(c.y>=height-80&&c.x>=shellWidth_) return palette_.surface; POINT p{c.x+c.w/2,c.y+c.h/2}; for(auto card:cards_) if((card.group==0||card.group==activeGroup_)&&PtInRect(&card.rect,p)) return palette_.surface; return palette_.background; }
 void DialogWindow::refreshTheme() { dark_=darkTheme(); palette_=Palette::system(dark_); styleTitleBar(hwnd,dark_); InvalidateRect(hwnd,nullptr,TRUE); for(auto& c:controls_) InvalidateRect(c.handle,nullptr,TRUE); }
 void DialogWindow::event(int id,int) { if(id==IDCANCEL) finish(false); }
 void DialogWindow::finish(bool yes) { accepted_=yes; done_=true; DestroyWindow(hwnd); }
 void DialogWindow::header(const std::wstring& title,const std::wstring& subtitle) { label(title,28,22,width-56,36,Role::Title); label(subtitle,28,64,width-56,24,Role::Muted); }
-void DialogWindow::card(int x,int y,int w,int h) { cards_.push_back({x,y,x+w,y+h}); }
+void DialogWindow::card(int x,int y,int w,int h) { cards_.push_back({{x,y,x+w,y+h},buildingGroup_}); }
 HWND DialogWindow::item(int id) { return GetDlgItem(hwnd,id); }
 HWND DialogWindow::add(const wchar_t* cls,const std::wstring& title,DWORD style,int id,int x,int y,int w,int h,Role role) {
     bool multiline=false;
@@ -24,7 +24,7 @@ HWND DialogWindow::add(const wchar_t* cls,const std::wstring& title,DWORD style,
     int insetX=role==Role::Input?12:0,insetY=role==Role::Input?(multiline?8:12):0;
     HWND child=CreateWindowExW(0,cls,title.c_str(),WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|style,px(x+insetX,dpi),px(y+insetY,dpi),px(w-2*insetX,dpi),px(h-2*insetY+(role==Role::Combo?384:0),dpi),hwnd,reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)),GetModuleHandleW(nullptr),nullptr);
     if(!child) throw std::runtime_error("无法创建界面控件");
-    controls_.push_back({child,x,y,w,h,role,multiline,false});
+    controls_.push_back({child,x,y,w,h,role,multiline,false,buildingGroup_});
     SendMessageW(child,WM_SETFONT,reinterpret_cast<WPARAM>(role==Role::Title?titleFont_:role==Role::Muted?smallFont_:font_),TRUE);
     if(role==Role::Combo) { SendMessageW(child,CB_SETITEMHEIGHT,static_cast<WPARAM>(-1),px(h-6,dpi)); SendMessageW(child,CB_SETITEMHEIGHT,0,px(48,dpi)); }
     if(role==Role::List) SendMessageW(child,LB_SETITEMHEIGHT,0,px(48,dpi));
@@ -34,17 +34,39 @@ HWND DialogWindow::add(const wchar_t* cls,const std::wstring& title,DWORD style,
 }
 HWND DialogWindow::button(const std::wstring& title,int id,int x,int y,int w,Role role) { if(id==IDOK&&role==Role::Secondary) role=Role::Primary; return add(L"BUTTON",title,WS_TABSTOP|BS_PUSHBUTTON,id,x,y,w,48,role); }
 void DialogWindow::label(const std::wstring& title,int x,int y,int w,int h,Role role) { add(L"STATIC",title,SS_LEFT|SS_NOPREFIX,0,x,y,w,h,role); }
+void DialogWindow::showGroup(int id) {
+    activeGroup_=id;
+    for(auto& c:controls_) ShowWindow(c.handle,c.group==0||c.group==id?SW_SHOW:SW_HIDE);
+    InvalidateRect(hwnd,nullptr,TRUE);
+}
+void DialogWindow::role(int id,Role value) { if(auto* c=control(item(id))) { c->role=value; InvalidateRect(c->handle,nullptr,FALSE); } }
 void DialogWindow::paint(HDC dc) {
     RECT client{}; GetClientRect(hwnd,&client); HBRUSH bg=CreateSolidBrush(palette_.background); FillRect(dc,&client,bg); DeleteObject(bg);
-    for(auto r:cards_) { RECT box{px(r.left,dpi),px(r.top,dpi),px(r.right,dpi),px(r.bottom,dpi)}; roundedFill(dc,box,px(14,dpi),palette_.surface,palette_.border); }
-    RECT footer{0,px(height-80,dpi),client.right,client.bottom}; HBRUSH surface=CreateSolidBrush(palette_.surface); FillRect(dc,&footer,surface); DeleteObject(surface);
-    HPEN line=CreatePen(PS_SOLID,1,palette_.border); auto oldPen=SelectObject(dc,line); MoveToEx(dc,0,footer.top,nullptr); LineTo(dc,client.right,footer.top); SelectObject(dc,oldPen); DeleteObject(line);
-    for(auto& c:controls_) if(c.role==Role::Input) { RECT box{px(c.x,dpi),px(c.y,dpi),px(c.x+c.w,dpi),px(c.y+c.h,dpi)}; roundedFill(dc,box,px(8,dpi),palette_.field,GetFocus()==c.handle?palette_.accent:palette_.border); }
+    for(auto card:cards_) { if(card.group&&card.group!=activeGroup_) continue; auto r=card.rect; RECT box{px(r.left,dpi),px(r.top,dpi),px(r.right,dpi),px(r.bottom,dpi)}; roundedFill(dc,box,px(6,dpi),palette_.surface,palette_.border); }
+    RECT footer{px(shellWidth_,dpi),px(height-80,dpi),client.right,client.bottom}; HBRUSH surface=CreateSolidBrush(palette_.surface); FillRect(dc,&footer,surface); DeleteObject(surface);
+    HPEN line=CreatePen(PS_SOLID,1,palette_.border); auto oldPen=SelectObject(dc,line); MoveToEx(dc,footer.left,footer.top,nullptr); LineTo(dc,client.right,footer.top); SelectObject(dc,oldPen); DeleteObject(line);
+    for(auto& c:controls_) if(c.role==Role::Input&&(c.group==0||c.group==activeGroup_)) { RECT box{px(c.x,dpi),px(c.y,dpi),px(c.x+c.w,dpi),px(c.y+c.h,dpi)}; roundedFill(dc,box,px(8,dpi),palette_.field,GetFocus()==c.handle?palette_.accent:palette_.border); }
 }
 void DialogWindow::drawControl(DRAWITEMSTRUCT* d) {
     auto* c=control(d->hwndItem); if(!c) return;
     HDC dc=d->hDC; RECT r=d->rcItem; auto oldFont=SelectObject(dc,font_); SetBkMode(dc,TRANSPARENT);
-    if(d->CtlType==ODT_LISTBOX||d->CtlType==ODT_COMBOBOX) {
+    if(c->role==Role::Navigation||c->role==Role::SelectedNavigation) {
+        bool selected=c->role==Role::SelectedNavigation;
+        SetDCBrushColor(dc,palette_.background); FillRect(dc,&r,static_cast<HBRUSH>(GetStockObject(DC_BRUSH)));
+        RECT box=r; InflateRect(&box,-px(2,dpi),-px(4,dpi));
+        if(selected||c->hover) roundedFill(dc,box,px(4,dpi),selected?palette_.selection:palette_.hover,selected?palette_.selection:palette_.hover);
+        if(selected) { RECT bar{px(2,dpi),r.bottom/2-px(8,dpi),px(5,dpi),r.bottom/2+px(8,dpi)}; roundedFill(dc,bar,px(2,dpi),palette_.accent,palette_.accent); }
+        HPEN pen=CreatePen(PS_SOLID,px(1,dpi),palette_.text); auto oldPen=SelectObject(dc,pen); auto oldBrush=SelectObject(dc,GetStockObject(NULL_BRUSH));
+        int x=px(18,dpi),y=r.bottom/2-px(8,dpi),size=px(16,dpi); Rectangle(dc,x,y,x+size,y+size);
+        int icon=GetDlgCtrlID(c->handle)-201;
+        if(icon==0) { for(int i=1;i<=2;++i) { MoveToEx(dc,x+px(4,dpi),y+px(i*5,dpi),nullptr); LineTo(dc,x+size-px(3,dpi),y+px(i*5,dpi)); } }
+        else if(icon==1) { MoveToEx(dc,x+size/2,y+px(3,dpi),nullptr); LineTo(dc,x+size/2,y+size-px(3,dpi)); MoveToEx(dc,x+px(3,dpi),y+size/2,nullptr); LineTo(dc,x+size-px(3,dpi),y+size/2); }
+        else if(icon==2) { MoveToEx(dc,x+px(4,dpi),y+size/2,nullptr); LineTo(dc,x+size-px(3,dpi),y+size/2); }
+        else { Ellipse(dc,x+px(7,dpi),y+px(3,dpi),x+px(10,dpi),y+px(6,dpi)); MoveToEx(dc,x+size/2,y+px(8,dpi),nullptr); LineTo(dc,x+size/2,y+px(13,dpi)); }
+        SelectObject(dc,oldBrush); SelectObject(dc,oldPen); DeleteObject(pen);
+        RECT area=r; area.left=px(48,dpi); SetTextColor(dc,palette_.text); auto value=caption(c->handle); DrawTextW(dc,value.c_str(),-1,&area,DT_SINGLELINE|DT_VCENTER|DT_NOPREFIX);
+        if(d->itemState&ODS_FOCUS) { InflateRect(&box,-3,-3); DrawFocusRect(dc,&box); }
+    } else if(d->CtlType==ODT_LISTBOX||d->CtlType==ODT_COMBOBOX) {
         SetDCBrushColor(dc,palette_.surface); FillRect(dc,&r,static_cast<HBRUSH>(GetStockObject(DC_BRUSH)));
         if(d->itemID!=static_cast<UINT>(-1)) {
             bool list=d->CtlType==ODT_LISTBOX; bool selected=(d->itemState&ODS_SELECTED)!=0;
@@ -61,7 +83,7 @@ void DialogWindow::drawControl(DRAWITEMSTRUCT* d) {
         COLORREF fill=primary?palette_.accent:(c->hover||pressed?palette_.hover:palette_.surface);
         if(disabled) fill=palette_.hover;
         SetDCBrushColor(dc,backing(*c)); FillRect(dc,&r,static_cast<HBRUSH>(GetStockObject(DC_BRUSH)));
-        RECT box=r; InflateRect(&box,-px(1,dpi),-px(1,dpi)); roundedFill(dc,box,px(9,dpi),fill,primary&&!disabled?fill:palette_.border);
+        RECT box=r; InflateRect(&box,-px(1,dpi),-px(1,dpi)); roundedFill(dc,box,px(4,dpi),fill,primary&&!disabled?fill:palette_.border);
         SetTextColor(dc,disabled?palette_.muted:primary?palette_.accentText:c->role==Role::Danger?palette_.danger:palette_.text);
         auto value=caption(c->handle); DrawTextW(dc,value.c_str(),-1,&box,DT_CENTER|DT_SINGLELINE|DT_VCENTER|DT_NOPREFIX);
         if((d->itemState&ODS_FOCUS)&&!(d->itemState&ODS_NOFOCUSRECT)) { InflateRect(&box,-px(4,dpi),-px(4,dpi)); DrawFocusRect(dc,&box); }
@@ -138,7 +160,7 @@ bool DialogWindow::show(HWND owner,const std::wstring& title) {
     static bool registered=[] { WNDCLASSEXW wc{sizeof wc}; wc.lpfnWndProc=proc; wc.hInstance=GetModuleHandleW(nullptr); wc.hCursor=LoadCursorW(nullptr,IDC_ARROW); wc.lpszClassName=L"ClassRollCall.Native.Dialog"; return RegisterClassExW(&wc)!=0; }();
     if(!registered) throw std::runtime_error("无法注册设置窗口"); auto monitor=MonitorFromWindow(owner,MONITOR_DEFAULTTONEAREST); dpi=monitorDpi(monitor); auto work=workArea(monitor);
     width=std::min(width,MulDiv(work.right-work.left,96,dpi)-32); height=std::min(height,MulDiv(work.bottom-work.top,96,dpi)-52);
-    controls_.reserve(48); dark_=darkTheme(); palette_=Palette::system(dark_);
+    controls_.reserve(96); dark_=darkTheme(); palette_=Palette::system(dark_);
     HWND h=CreateWindowExW(WS_EX_DLGMODALFRAME|WS_EX_CONTROLPARENT,L"ClassRollCall.Native.Dialog",title.c_str(),WS_POPUP|WS_CAPTION|WS_SYSMENU|WS_CLIPCHILDREN,work.left+px(16,dpi),work.top+px(16,dpi),px(width,dpi),px(height,dpi),owner,nullptr,GetModuleHandleW(nullptr),this);
     if(!h) throw std::runtime_error("无法打开设置窗口"); styleTitleBar(h,dark_); layout(); create(); layout();
     RECT r{}; GetWindowRect(h,&r); SetWindowPos(h,HWND_TOP,work.left+(work.right-work.left-(r.right-r.left))/2,work.top+(work.bottom-work.top-(r.bottom-r.top))/2,0,0,SWP_NOSIZE);

@@ -92,7 +92,7 @@ void Application::command(UINT id) {
     if(id>=1000&&id<1000+state_.classes.size()) { state_.current=state_.classes[id-1000].id; picker_.reset(); save(); }
     else switch(id) {
     case 10: if(manageClasses(floating_,state_)) { picker_.reset(); save(); } break;
-    case 11: if(importFiles(floating_,state_)) { picker_.reset(); save(); } break;
+    case 11: if(manageClasses(floating_,state_,202)) { picker_.reset(); save(); } break;
     case 20: case 21: state_.mode=id==20?PickMode::Balanced:PickMode::Random; picker_.reset(); save(); break;
     case 30: setStartup(!state_.autostart); state_.autostart=!state_.autostart; save(); break;
     case 31: place(true); remember(); break;
