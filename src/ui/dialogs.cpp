@@ -81,13 +81,16 @@ class Preview:public Dialog {
     void create() override {
         header(L"导入名单  ›  预览与确认",doc_.source);
         const int left=std::min(336,(width-84)/2),right=left+52,available=width-right-28;
-        card(24,100,left,height-184); card(right,100,available,height-184);
+        const bool roomy=height>=540;
+        if(roomy) { card(24,100,left,84); card(24,192,left,84); card(24,284,left,84); card(24,376,left,64); }
+        else card(24,100,left,height-184);
+        card(right,100,available,height-184);
         label(L"班级名称",40,112,left-32,18,Role::Muted); add(L"EDIT",className_,WS_TABSTOP|ES_AUTOHSCROLL,100,40,134,left-32,44); SendMessageW(item(100),EM_SETLIMITTEXT,100,0);
-        label(L"工作表 / 文档内容",40,182,left-32,18,Role::Muted); add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,101,40,204,left-32,44);
+        label(L"工作表 / 文档内容",40,roomy?204:182,left-32,18,Role::Muted); add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,101,40,roomy?228:204,left-32,44);
         for(auto& s:doc_.sheets) SendMessageW(item(101),CB_ADDSTRING,0,reinterpret_cast<LPARAM>(s.name.c_str())); SendMessageW(item(101),CB_SETCURSEL,0,0);
-        label(L"姓名所在列",40,252,left-32,18,Role::Muted); add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,102,40,274,left-32,44);
-        label(L"跳过表头行数",40,340,left-120,24,Role::Muted); add(L"EDIT",L"0",WS_TABSTOP|ES_NUMBER,103,left-48,328,64,44); SendMessageW(item(103),EM_SETLIMITTEXT,5,0);
-        if(height>=540) label(L"确认姓名列后，右侧预览会即时更新。",40,416,left-32,50,Role::Muted);
+        label(L"姓名所在列",40,roomy?296:252,left-32,18,Role::Muted); add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,102,40,roomy?320:274,left-32,44);
+        label(L"跳过表头行数",40,roomy?398:340,left-120,24,Role::Muted); add(L"EDIT",L"0",WS_TABSTOP|ES_NUMBER,103,left-48,roomy?386:328,64,44); SendMessageW(item(103),EM_SETLIMITTEXT,5,0);
+        if(height>=600) label(L"确认姓名列后，右侧预览会即时更新。",40,452,left-32,50,Role::Muted);
         label(L"名单预览",right+20,116,available-40,26);
         add(L"STATIC",L"",SS_LEFT|SS_NOPREFIX,105,right+20,150,available-40,42,Role::Muted);
         add(L"LISTBOX",L"",WS_TABSTOP|WS_VSCROLL|WS_HSCROLL|LBS_NOINTEGRALHEIGHT,104,right+8,196,available-16,height-358);
