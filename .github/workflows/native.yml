@@ -24,6 +24,8 @@ jobs:
         run: ctest --test-dir build -C Release --output-on-failure
       - name: GUI smoke and idle measurements
         shell: pwsh
+        env:
+          CRC_UI_REVIEW: '1'
         run: ./scripts/smoke.ps1 -Exe ./dist/ClassRollCall.exe
       - uses: ilammy/msvc-dev-cmd@v1
         if: always()
