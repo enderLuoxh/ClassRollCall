@@ -1,0 +1,23 @@
+{
+  "cpu_ms_in_2s": 0,
+  "idle_working_set_bytes": 12218368,
+  "threads": 4,
+  "exe_bytes": 489984,
+  "dpi": 96,
+  "gui_balanced_round": [
+    "王五",
+    "张三",
+    "李四"
+  ],
+  "single_instance": "passed",
+  "auto_dismiss": "passed",
+  "no_activate": "passed",
+  "result_click_through": "passed",
+  "class_editor": "passed",
+  "import_preview": "passed",
+  "duplicate_toggle": "passed",
+  "import_confirmation": "passed",
+  "setup_startup_opt_in": "passed",
+  "touch_button_height_dip": 48,
+  "floating_face_dip": "96x56"
+}

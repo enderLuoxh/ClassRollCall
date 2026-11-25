@@ -11,6 +11,24 @@
 
 ## 自动化覆盖
 
+### 统一界面更新验证
+
+[构建 45600869759](https://github.com/enderLuoxh/ClassRollCall/actions/runs/45600869759)
+在提交 `edbbeb4c543eea0f4fbf49767c152658e38c8b79` 上通过 Release、core / import
+及扩展 GUI 冒烟。原生窗口截图已核对班级管理、名单编辑、导入预览、首次设置的实际排版。
+所有截图均为独立临时目录中的虚构测试数据，未读取真实学生名单。
+
+新增实际 UI 操作验证：新增班级和逐行名单保存、文件拖入、切换 XLSX 工作表、
+重复保留 / 去重切换、确认导入后检查落盘名单、关于窗口、自启动默认不勾选。
+悬浮可见按钮 96 × 56 DIP，主要操作按钮高 48 DIP，100% 缩放下实际窗口尺寸校验通过。
+
+此版 EXE 489984 字节（约 478.5 KiB），空闲工作集 12218368 字节（约 11.65 MiB），
+一次 2 秒空闲采样累计 CPU 0 ms。机器可读结果见
+[SMOKE_UI_RESULTS.json](validation/SMOKE_UI_RESULTS.json)。
+其他 DPI、实体触摸、Win7、真实 PPT 的验收范围维持文末待测项。
+
+### 初版验证基线
+
 以下自动化在 [Windows 构建 45590099661](https://github.com/enderLuoxh/ClassRollCall/actions/runs/45590099661)
 通过，测试源码提交 `2c2923acbad1ee7a76efa8490125434fd0800433`。
 core 0.09 秒、import 0.04 秒，17 个实际测试文件生成成功，GUI 冒烟通过。
