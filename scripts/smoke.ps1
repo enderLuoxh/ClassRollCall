@@ -18,7 +18,8 @@ public static class RollCallWindows {
     [DllImport("user32.dll",EntryPoint="GetWindowLongW")] public static extern int GetWindowLong(IntPtr window,int index);
     [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr window,int id);
     [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr window,uint msg,IntPtr wp,IntPtr lp);
-    [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern bool SetWindowText(IntPtr window,string text);
+    [DllImport("user32.dll",EntryPoint="SendMessageW",CharSet=CharSet.Unicode)] public static extern IntPtr SendText(IntPtr window,uint msg,IntPtr wp,string text);
+    public static bool SetWindowText(IntPtr window,string text) { return SendText(window,0x000C,IntPtr.Zero,text)!=IntPtr.Zero; }
     [DllImport("kernel32.dll")] public static extern IntPtr GlobalAlloc(uint flags,UIntPtr bytes);
     [DllImport("kernel32.dll")] public static extern IntPtr GlobalLock(IntPtr handle);
     [DllImport("kernel32.dll")] public static extern bool GlobalUnlock(IntPtr handle);

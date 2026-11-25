@@ -97,7 +97,7 @@ LRESULT CALLBACK DialogWindow::childProc(HWND h,UINT msg,WPARAM wp,LPARAM lp,UIN
 }
 void DialogWindow::layout(const RECT* suggested) {
     for(HFONT* f:{&font_,&titleFont_,&smallFont_}) if(*f) { DeleteObject(*f); *f=nullptr; }
-    auto make=[&](int size,int weight) { return CreateFontW(-px(size,dpi),0,0,0,weight,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI"); };
+    auto make=[&](int size,int weight) { return CreateFontW(-px(size,dpi),0,0,0,weight,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI"); };
     font_=make(15,FW_NORMAL); titleFont_=make(26,FW_SEMIBOLD); smallFont_=make(13,FW_NORMAL);
     for(auto& c:controls_) { int ix=c.role==Role::Input?12:0,iy=c.role==Role::Input?(c.multiline?8:12):0;
         SetWindowPos(c.handle,nullptr,px(c.x+ix,dpi),px(c.y+iy,dpi),px(c.w-2*ix,dpi),px(c.h-2*iy+(c.role==Role::Combo?384:0),dpi),SWP_NOZORDER);

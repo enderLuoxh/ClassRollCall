@@ -81,11 +81,11 @@ class Preview:public Dialog {
         header(L"导入班级名单",doc_.source);
         const int left=std::min(336,(width-84)/2),right=left+52,available=width-right-28;
         card(24,100,left,height-184); card(right,100,available,height-184);
-        label(L"班级名称",40,112,left-32,22,Role::Muted); add(L"EDIT",className_,WS_TABSTOP|ES_AUTOHSCROLL,100,40,136,left-32,44); SendMessageW(item(100),EM_SETLIMITTEXT,100,0);
-        label(L"工作表 / 文档内容",40,190,left-32,22,Role::Muted); add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,101,40,214,left-32,44);
+        label(L"班级名称",40,112,left-32,18,Role::Muted); add(L"EDIT",className_,WS_TABSTOP|ES_AUTOHSCROLL,100,40,134,left-32,44); SendMessageW(item(100),EM_SETLIMITTEXT,100,0);
+        label(L"工作表 / 文档内容",40,182,left-32,18,Role::Muted); add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,101,40,204,left-32,44);
         for(auto& s:doc_.sheets) SendMessageW(item(101),CB_ADDSTRING,0,reinterpret_cast<LPARAM>(s.name.c_str())); SendMessageW(item(101),CB_SETCURSEL,0,0);
-        label(L"姓名所在列",40,268,left-32,22,Role::Muted); add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,102,40,292,left-32,44);
-        label(L"跳过表头行数",40,354,left-120,24,Role::Muted); add(L"EDIT",L"0",WS_TABSTOP|ES_NUMBER,103,left-48,342,64,44); SendMessageW(item(103),EM_SETLIMITTEXT,5,0);
+        label(L"姓名所在列",40,252,left-32,18,Role::Muted); add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,102,40,274,left-32,44);
+        label(L"跳过表头行数",40,340,left-120,24,Role::Muted); add(L"EDIT",L"0",WS_TABSTOP|ES_NUMBER,103,left-48,328,64,44); SendMessageW(item(103),EM_SETLIMITTEXT,5,0);
         if(height>=540) label(L"确认姓名列后，右侧预览会即时更新。",40,416,left-32,50,Role::Muted);
         label(L"名单预览",right+20,116,available-40,26);
         add(L"STATIC",L"",SS_LEFT|SS_NOPREFIX,105,right+20,150,available-40,42,Role::Muted);
