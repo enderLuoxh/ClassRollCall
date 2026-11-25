@@ -57,15 +57,16 @@ void DialogWindow::drawControl(DRAWITEMSTRUCT* d) {
         if(selected||c->hover) roundedFill(dc,box,px(4,dpi),selected?palette_.selection:palette_.hover,selected?palette_.selection:palette_.hover);
         if(selected) { RECT bar{px(2,dpi),r.bottom/2-px(8,dpi),px(5,dpi),r.bottom/2+px(8,dpi)}; roundedFill(dc,bar,px(2,dpi),palette_.accent,palette_.accent); }
         HPEN pen=CreatePen(PS_SOLID,px(1,dpi),palette_.text); auto oldPen=SelectObject(dc,pen); auto oldBrush=SelectObject(dc,GetStockObject(NULL_BRUSH));
-        int x=px(18,dpi),y=r.bottom/2-px(8,dpi),size=px(16,dpi); Rectangle(dc,x,y,x+size,y+size);
+        int x=px(18,dpi),y=r.bottom/2-px(8,dpi),size=px(16,dpi);
         int icon=GetDlgCtrlID(c->handle)-201;
+        if(icon==2||icon==3) Ellipse(dc,x,y,x+size,y+size); else Rectangle(dc,x,y,x+size,y+size);
         if(icon==0) { for(int i=1;i<=2;++i) { MoveToEx(dc,x+px(4,dpi),y+px(i*5,dpi),nullptr); LineTo(dc,x+size-px(3,dpi),y+px(i*5,dpi)); } }
         else if(icon==1) { MoveToEx(dc,x+size/2,y+px(3,dpi),nullptr); LineTo(dc,x+size/2,y+size-px(3,dpi)); MoveToEx(dc,x+px(3,dpi),y+size/2,nullptr); LineTo(dc,x+size-px(3,dpi),y+size/2); }
-        else if(icon==2) { MoveToEx(dc,x+px(4,dpi),y+size/2,nullptr); LineTo(dc,x+size-px(3,dpi),y+size/2); }
+        else if(icon==2) { Ellipse(dc,x+px(5,dpi),y+px(5,dpi),x+px(11,dpi),y+px(11,dpi)); for(int i=0;i<4;++i) { int cx=x+size/2,cy=y+size/2; int dx=i==0?-1:i==2?1:0,dy=i==1?-1:i==3?1:0; MoveToEx(dc,cx+dx*px(7,dpi),cy+dy*px(7,dpi),nullptr); LineTo(dc,cx+dx*px(10,dpi),cy+dy*px(10,dpi)); } }
         else { Ellipse(dc,x+px(7,dpi),y+px(3,dpi),x+px(10,dpi),y+px(6,dpi)); MoveToEx(dc,x+size/2,y+px(8,dpi),nullptr); LineTo(dc,x+size/2,y+px(13,dpi)); }
         SelectObject(dc,oldBrush); SelectObject(dc,oldPen); DeleteObject(pen);
         RECT area=r; area.left=px(48,dpi); SetTextColor(dc,palette_.text); auto value=caption(c->handle); DrawTextW(dc,value.c_str(),-1,&area,DT_SINGLELINE|DT_VCENTER|DT_NOPREFIX);
-        if(d->itemState&ODS_FOCUS) { InflateRect(&box,-3,-3); DrawFocusRect(dc,&box); }
+        if((d->itemState&ODS_FOCUS)&&!(d->itemState&ODS_NOFOCUSRECT)) { InflateRect(&box,-3,-3); DrawFocusRect(dc,&box); }
     } else if(d->CtlType==ODT_LISTBOX||d->CtlType==ODT_COMBOBOX) {
         SetDCBrushColor(dc,palette_.surface); FillRect(dc,&r,static_cast<HBRUSH>(GetStockObject(DC_BRUSH)));
         if(d->itemID!=static_cast<UINT>(-1)) {
@@ -165,6 +166,7 @@ bool DialogWindow::show(HWND owner,const std::wstring& title) {
     if(!h) throw std::runtime_error("无法打开设置窗口"); styleTitleBar(h,dark_); layout(); create(); layout();
     RECT r{}; GetWindowRect(h,&r); SetWindowPos(h,HWND_TOP,work.left+(work.right-work.left-(r.right-r.left))/2,work.top+(work.bottom-work.top-(r.bottom-r.top))/2,0,0,SWP_NOSIZE);
     bool wasEnabled=owner&&IsWindowEnabled(owner); if(wasEnabled) EnableWindow(owner,FALSE); ShowWindow(h,SW_SHOW); SetForegroundWindow(h);
+    SendMessageW(h,WM_CHANGEUISTATE,MAKEWPARAM(UIS_SET,UISF_HIDEFOCUS),0);
     HWND first=GetNextDlgTabItem(h,nullptr,FALSE); if(first) SetFocus(first); MSG message{}; bool quit=false;
     while(!done_) { BOOL got=GetMessageW(&message,nullptr,0,0); if(got<=0) { quit=got==0; break; } if(!IsDialogMessageW(h,&message)) { TranslateMessage(&message); DispatchMessageW(&message); } }
     if(IsWindow(h)) DestroyWindow(h); if(wasEnabled) { EnableWindow(owner,TRUE); SetForegroundWindow(owner); } if(quit) PostQuitMessage(static_cast<int>(message.wParam)); return accepted_;
