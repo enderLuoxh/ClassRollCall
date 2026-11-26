@@ -136,7 +136,7 @@ try {
     if (($seen | Select-Object -Unique).Count -ne 3) { throw 'Balanced GUI round repeated a student' }
     $floatRect = New-Object RollCallWindows+Rect
     [void][RollCallWindows]::GetWindowRect($floating,[ref]$floatRect)
-    if (($floatRect.Right-$floatRect.Left) -ne [int](108*$dpi/96) -or ($floatRect.Bottom-$floatRect.Top) -ne [int](68*$dpi/96)) { throw 'Floating button dimensions do not scale' }
+    if (($floatRect.Right-$floatRect.Left) -ne [int](124*$dpi/96) -or ($floatRect.Bottom-$floatRect.Top) -ne [int](76*$dpi/96)) { throw 'Floating button dimensions do not scale' }
     Send-Command $floating 10
     $manager = Wait-Dialog '管理班级名单'
     $saveRect = New-Object RollCallWindows+Rect
@@ -155,9 +155,6 @@ try {
     Send-Command $manager 2201
     Start-Sleep -Milliseconds 100
     Review-Image $manager 'PREFERENCES'
-    Send-Command $manager 204
-    Start-Sleep -Milliseconds 100
-    Review-Image $manager 'ABOUT'
     Send-Command $manager 201
     Start-Sleep -Milliseconds 200
     Send-Command $manager 101
@@ -190,10 +187,6 @@ try {
     $importedId = $imported.Split('=')[0]
     $importedNames = @(Get-Content -LiteralPath (Join-Path $appPath "rosters\$importedId.txt") -Encoding utf8)
     if ($importedNames.Count -ne 3) { throw 'Wrong confirmed import roster' }
-    Send-Command $floating 40
-    $about = Wait-Dialog 'ClassRollCall'
-    Send-Command $about 1
-    Start-Sleep -Milliseconds 200
     $second = Start-Process -FilePath $exePath -WindowStyle Hidden -PassThru -Wait
     if ($second.ExitCode -ne 0) { throw 'Second instance did not exit cleanly' }
     [void][RollCallWindows]::PostMessage($floating,0x0010,[IntPtr]0,[IntPtr]0)
@@ -209,7 +202,7 @@ try {
     $floating = [RollCallWindows]::ByClass('ClassRollCall.Native.Float')
     [void][RollCallWindows]::PostMessage($floating,0x0010,[IntPtr]0,[IntPtr]0)
     if (!$instance.WaitForExit(5000)) { throw 'Application did not exit after setup' }
-    $report = [ordered]@{ cpu_ms_in_2s=$cpuMs; idle_working_set_bytes=$workingSet; threads=$threads; exe_bytes=(Get-Item -LiteralPath $exePath).Length; dpi=$dpi; gui_balanced_round=$seen; single_instance='passed'; auto_dismiss='passed'; no_activate='passed'; result_click_through='passed'; class_editor='passed'; import_preview='passed'; duplicate_toggle='passed'; import_confirmation='passed'; setup_startup_opt_in='passed'; touch_button_height_dip=48; floating_face_dip='96x56' }
+    $report = [ordered]@{ cpu_ms_in_2s=$cpuMs; idle_working_set_bytes=$workingSet; threads=$threads; exe_bytes=(Get-Item -LiteralPath $exePath).Length; dpi=$dpi; gui_balanced_round=$seen; single_instance='passed'; auto_dismiss='passed'; no_activate='passed'; result_click_through='passed'; class_editor='passed'; import_preview='passed'; duplicate_toggle='passed'; import_confirmation='passed'; setup_startup_opt_in='passed'; touch_button_height_dip=48; floating_face_dip='112x64' }
     $report | ConvertTo-Json | Tee-Object -FilePath 'smoke-results.json'
 } finally {
     $env:LOCALAPPDATA=$oldLocalAppData

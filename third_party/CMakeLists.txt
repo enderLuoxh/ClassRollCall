@@ -1,13 +1,17 @@
-include(FetchContent)
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(INSTALL_PROJECT OFF CACHE BOOL "" FORCE)
-set(PUGIXML_INSTALL OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(miniz URL https://github.com/richgel999/miniz/archive/293d4db1b7d0ffee9756d035b9ac6f7431ef8492.tar.gz DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
-FetchContent_Declare(pugixml URL https://github.com/zeux/pugixml/archive/ee86beb30e4973f5feffe3ce63bfa4fbadf72f38.tar.gz DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
-FetchContent_Declare(libxls URL https://github.com/libxls/libxls/archive/c199d132494833da696b58aa4acf3fc5a36d930b.tar.gz DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
-FetchContent_MakeAvailable(miniz pugixml libxls)
+set(miniz_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/miniz")
+set(pugixml_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/pugixml")
+set(libxls_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/libxls")
+# Build the pinned, vendored readers without network downloads or upstream tools.
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/miniz_config")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/miniz_config/miniz_export.h"
+  "#pragma once\n#define MINIZ_EXPORT\n#define MINIZ_NO_EXPORT\n")
+add_library(miniz STATIC ${miniz_SOURCE_DIR}/miniz.c ${miniz_SOURCE_DIR}/miniz_tdef.c
+  ${miniz_SOURCE_DIR}/miniz_tinfl.c ${miniz_SOURCE_DIR}/miniz_zip.c)
+target_include_directories(miniz PUBLIC "${miniz_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/miniz_config")
+set_target_properties(miniz PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES)
+add_library(pugixml STATIC ${pugixml_SOURCE_DIR}/src/pugixml.cpp)
+add_library(pugixml::pugixml ALIAS pugixml)
+target_include_directories(pugixml PUBLIC "${pugixml_SOURCE_DIR}/src")
 # libxls uses autotools upstream; compile only its reader as a static library.
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/xls_config")
 configure_file(config.h.in "${CMAKE_CURRENT_BINARY_DIR}/xls_config/config.h" @ONLY)

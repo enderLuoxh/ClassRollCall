@@ -39,7 +39,7 @@ Sheet parseDelimited(const std::wstring& text,bool forceLines) {
     if(!cell.empty()||!row.empty()||sheet.rows.empty()) pushRow(); return sheet;
 }
 NameColumn detectNames(const Sheet& sheet) {
-    static const std::set<std::wstring> headers{L"姓名",L"学生姓名",L"名字",L"学生",L"name",L"student name"};
+    static const std::set<std::wstring> headers{L"姓名",L"学生姓名",L"考生姓名",L"名字",L"学生",L"name",L"student name"};
     for(size_t r=0;r<std::min(size_t{20},sheet.rows.size());++r) {
         int found=-1; for(size_t c=0;c<sheet.rows[r].size();++c) { auto s=trim(sheet.rows[r][c]); std::transform(s.begin(),s.end(),s.begin(),towlower); if(headers.count(s)) { if(found>=0) return {}; found=static_cast<int>(c); } }
         if(found>=0) return {found,r+1,true};

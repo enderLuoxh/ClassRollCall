@@ -1,101 +1,172 @@
-# ClassRollCall 2.0 · 班级点名器
+# ClassRollCall 2.0.2 班级点名器
 
-C++17 / Win32 / GDI+ 原生重构。日常只显示一个半透明的 **Call** 悬浮按钮。
+C++17 / Win32 / GDI+ 原生重构版。日常屏幕上只有一个白色圆角悬浮按钮，点一下即可随机点名。
 原版作者 enderLuoxh，MIT License。
 
 ## 使用
 
-1. 解压 Release 包，双击 `ClassRollCall.exe`。无需安装、管理员权限或联网。
-2. 首次设置中导入班级名单；开机启动默认关闭，也可以跳过导入。
-3. 单击悬浮按钮，姓名滚动约 1 秒，最终结果停留约 3 秒后淡出。
-4. 右键或触摸长按约 500 ms 打开菜单，切换班级、导入、管理名单或退出。
-5. 拖动悬浮按钮调整位置；双击系统托盘图标显示或隐藏按钮。
+1. 在 Windows 10/11 双击 `ClassRollCall.exe`，无需安装、管理员权限或联网，不需要 .NET、Python、Qt 或另装 VC++ 运行库。
+2. 首次运行导入班级名单（可跳过）；开机启动默认关闭。
+3. 单击悬浮按钮，姓名快速滚动约 1 秒，结果在屏幕中央停留约 3 秒后淡出。
+4. 右键悬浮按钮（触摸屏长按约 0.5 秒）打开菜单：切换班级、管理名单、导入名单、
+   抽取模式、开机自动启动、重置位置、隐藏按钮、退出。
+5. 拖动按钮可换位置；双击托盘图标显示/隐藏按钮。
 
-默认按钮约 50% 不透明，抽取期间约 95%；抽取期间忽略重复点击。
-中央结果卡片默认穿透鼠标和触摸，不抢占 PPT 焦点。菜单项目高 48 DIP。
+按钮平时约 50% 不透明，点击抽取时提高到约 95%，抽取结束后恢复半透明。
+结果卡片不接收鼠标和触摸，不会打断 PPT 放映。
 
-根据界面反馈，所有窗口统一采用轻量 Fluent 风格：分区卡片、圆角控件、蓝色主操作、
-清晰的标题与辅助文字；浅色 / 深色随系统切换。悬浮按钮可见区域改为 **96 × 56 DIP**
-（含阴影的窗口为 108 × 68 DIP），主要操作按钮高 **48 DIP**。
-班级管理、名单编辑、导入预览、首次设置、关于、确认和错误提示共用同一套界面组件。
-导入预览左右排列设置与姓名，文件选择使用系统 `IFileOpenDialog`。
-管理窗口采用 Windows 11 设置式导航，包含班级名单、导入名单、使用偏好和关于。
-抽取模式和开机启动可在偏好页修改；关闭设置后仍只保留悬浮按钮。
+## 界面
+
+- 悬浮按钮：白色圆角矩形，112 × 64 DIP（窗口 124 × 76 DIP，内含 6 DIP 透明边），
+  灰色「点名」二字，无图标、无阴影、无渐变。
+- 结果卡片：460 × 168 DIP 白色圆角卡片，只显示姓名（粗体、自动缩放），居中于按钮所在显示器。
+- 右键菜单：自绘圆角弹层，48 DIP 行高，选中勾固定在 14 DIP 方框内；支持鼠标与触摸点按子菜单；
+  点击卡片外或按 Esc 关闭。
+- 管理窗口：Windows 11 设置式左侧导航（班级名单 / 导入名单 / 使用偏好）。
+- 全部尺寸以 DIP 计算，跟随系统 DPI 与浅色 / 深色主题；颜色为中性灰白 + Windows 蓝，
+  不使用渐变、图片或实时模糊。
 
 ## 名单与导入
 
-支持 `.txt`、`.csv`、`.xls`、`.xlsx`、`.docx`。可以一次选择多个文件，或将文件
-拖到悬浮按钮上。每个文件默认作为一个班级，以文件名命名。
+支持 `.txt`、`.csv`、`.xls`、`.xlsx`、`.docx` 与剪贴板粘贴。可以一次选择或拖入多个文件，
+每个文件默认生成一个以文件名命名的班级。
 
-剪贴板：右键 → 管理班级名单 → 粘贴名单。从 Excel 复制多列数据时可以选取姓名列。
-管理窗口也可新增空班级、编辑逐行姓名、重命名及删除班级。
+- 文本：UTF-8 / UTF-8 BOM / UTF-16 LE、BE（含 BOM）/ GBK / GB18030；自动去空白行与首尾空格。
+- CSV：逗号、制表符、分号分隔，支持引号与换行转义。
+- XLS：libxls 读取 BIFF，支持中文、多列、多工作表。
+- XLSX：ZIP + XML 解析，支持共享字符串、内联字符串、多工作表；公式只读缓存值。
+- DOCX：ZIP + XML 解析，支持段落与表格。
+- 剪贴板：从 Excel / Word / 网页复制的文本直接粘贴预览。
 
-导入预览可选择工作表 / Word 表格、姓名列、跳过的表头行数，并显示人数、空白和
-重复记录数量。识别到“姓名 / 学生姓名 / 名字 / 学生 / Name / Student Name”时
-自动选择；没有明确表头的多列表格必须手动选列。同名学生作为独立记录保留，
-仅在勾选去重时删除重复。多工作表文件一次确认所选工作表；需要其他表时再次导入。
+导入前显示预览：文件名、工作表、姓名列、人数、姓名样例、重复与空白数量。
+识别到「姓名 / 学生姓名 / 考生姓名 / 名字 / 学生 / Name / Student Name」时自动选列；多工作表时
+按「识别出的姓名列中非空单元格最多」自动选择工作表，也可手动切换。无法确定姓名列
+时必须手动选择，不会把学号、性别等列混进名单。同名记录默认保留，可勾选去重。
 
-同名班级必须选择重命名、替换或取消。导入不会运行宏、公式或外部资源；公式仅读取
-已缓存的结果。旧版 `.doc`、PDF、图片 / OCR 不支持。
-
-支持 UTF-8、UTF-8 BOM、UTF-16 LE/BE BOM、GBK / GB18030；无 BOM 的非 UTF-8
-文本按 GB18030 解码。CSV 支持逗号、分号、制表符，以及引号和换行转义。
-
-为控制内存，导入限制：文件 16 MiB、Office 单项解压 16 MiB、总解压 64 MiB、
-2048 个压缩条目、64 个工作表、10000 行、256 列、100000 个单元格。
-超过限制会提示，建议先导出姓名列。导入发生在 UI 线程，大文件解析期间界面会短暂等待。
+导入安全：不执行宏与公式，不访问网络，XML 禁用 DTD 与外部实体，ZIP 限制单项 16 MiB、
+总量 64 MiB、2048 个条目，表格限制 64 个工作表 / 10000 行 / 256 列 / 100000 个单元格。
+损坏或超限文件会被拒绝并显示错误；测试覆盖损坏 ZIP、解压大小超限和 DTD 样本。
 
 ## 抽取模式
 
-- **均衡抽取**：Fisher–Yates 洗牌，一轮内每条记录恰好一次，结束后重新洗牌。
-- **完全随机**：每次独立均匀抽取，允许连续抽中同一人。
+- **均衡抽取**（默认）：Fisher–Yates 洗牌，一轮内每人恰好一次，抽完自动重洗。
+- **完全随机**：每次独立均匀抽取，允许重复。
 
-切换班级、修改名单或切换模式后重置本轮；重新启动也重新洗牌。
+切换班级、修改名单、切换模式或重启都会重置本轮。
+结果显示期间选择班级、模式或名单管理，会收起当前结果并执行操作，不再静默忽略。
 
-## 数据和开机启动
+## 数据与开机启动
 
-数据位于 `%LOCALAPPDATA%\ClassRollCall\`，含 `settings.ini`、`classes.ini` 和
-`rosters/*.txt`。名单采用 UTF-8，一行一条记录。文件先写入临时文件，刷新后原子替换。
-修改班级时使用新名单 ID，再切换班级索引；旧文件不会被当作当前名单。
-如需备份，复制整个数据目录。旧版 `settings.json`、`position.json` 和 `names.csv`
-不会被覆盖，也不会自动导入；可以从旧版 CSV 手动导入。
+数据存放在 `%LOCALAPPDATA%\ClassRollCall\`：
 
-自启动使用当前用户的注册表 Run 项。移动 EXE 后，下次运行检测到路径变化时会提示修复。
-程序不安装服务，不提供自动更新，不发送网络请求。
+```
+settings.ini     当前班级、抽取模式、位置、主题、开机启动
+classes.ini      班级 ID 与名称
+rosters/<id>.txt UTF-8 名单，一行一个记录
+```
 
-## 系统兼容性与 DPI
+写入采用临时文件 + 原子替换。备份时复制整个目录即可。旧版 `names.csv` 不会被读取。
+系统目录拒绝写入或设置文件被占用时，会自动尝试 EXE 旁的 `data/<版本数据目录>`，
+再尝试用户漫游目录和文档目录；切换目录会保存完整名单与设置，保留原目录。
+重启时读取最近成功保存的完整配置。使用软件旁的 `data` 目录时，移动软件请连同它一起复制。
+拖动保存失败不会重复弹出阻塞对话框。全部位置都无法保存时，本次运行仍可点名，
+托盘仅提示一次设置尚未保存，编辑名单时仍会明确报告保存失败。
 
-优先支持 Windows 10 / 11，x86 Release 可运行在 32 位和 64 位系统上。
-Win7 SP1 / Win8 / 8.1 保留代码级降级路径；**未经过干净系统实测前，不宣称兼容验收通过**。
-最新 DPI / Pointer API 均通过动态查找使用。Win7 使用系统 DPI 和 WM_TOUCH；
-Win8+ 使用 WM_POINTER；Win10 1703+ 优先 Per-Monitor V2。
+开机启动写入当前用户的 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`，
+不需要管理员权限；EXE 移动后下次启动会提示修复路径。程序不安装服务、不联网、无后台线程。
 
-界面以 DIP 布局，处理 DPI 改变。位置保存显示器名称和相对工作区的 DIP 坐标；
-移除显示器后回到主显示器。测试覆盖范围见 [测试记录](docs/TEST_REPORT.md)。
+## 兼容性
+
+- Windows 10 / 11：完整支持。
+- Windows 8 / 8.1：兼容（WM_POINTER、Per-Monitor V1）。
+- Windows 7 SP1：代码保留 System DPI + WM_TOUCH 降级路径，但**本仓库当前的 zig 构建使用
+  UCRT 运行库**，干净 Win7 需要 KB2999226；不含该系统更新的机器请使用 MSVC `/MT` 构建
+  （见下）。Win7 未在干净虚拟机实测，不作兼容性声明。
+- 全部为 x86，可运行于 32 / 64 位系统。较新的 DPI / Pointer API 均通过 `GetProcAddress`
+  动态加载，不会静态依赖旧系统不存在的导入项。
 
 ## 构建
 
-开发机需要 Visual Studio 2022 的 C++ 桌面开发工具和 Windows SDK、CMake 3.24+。
-默认静态链接 MSVC 运行库和解析依赖，发布文件为 `dist/ClassRollCall.exe`。
-首次配置下载固定版本源码；依赖缓存完成后可离线重新构建。
+仓库提供两条构建路径。
+
+### 一、MSVC + CMake（正式 Win7 兼容构建，需 Visual Studio 2022 + Windows SDK）
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/build.ps1
-# 同时生成实际 Office 测试文件并执行测试（测试开发机才需要 Python）：
-powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Test
+powershell -ExecutionPolicy Bypass -File scripts/build.ps1        # Release x86 -> dist/ClassRollCall.exe
+powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Test  # 额外生成测试夹具并执行测试
 ```
 
-也可以直接执行：
+或手动：
 
 ```powershell
 cmake -S . -B build -A Win32 -DBUILD_TESTING=OFF
 cmake --build build --config Release --parallel 2
 ```
 
-完整自动验证由 `.github/workflows/native.yml` 执行，包含 x86 Release 构建、
-算法 / 持久化测试、真实导入文件测试、GUI 冒烟及导入表检查。
-发布包同时保留 `LICENSE`、第三方许可和测试结果；运行时只需主要 EXE。
+`/MT` 静态运行库，输出单个 EXE。第三方依赖已存放于 `third_party/vendor/`，构建无需联网。
 
-`src/ClassRollCall.py` 和 `tools/` 是原版历史参考，不参与原生目标构建。
-第三方来源见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，需求见
-[PROJECT_SPEC.md](docs/PROJECT_SPEC.md)，旧版核查见 [原版实现核查](docs/LEGACY_REVIEW.md)。
+### 二、zig 交叉编译（无需 Windows SDK，输出 UCRT 版本）
+
+```powershell
+$env:ZIG_CACHE="D:\zig-cache"      # 可写目录
+python scripts/build_zig.py --clean
+python scripts/build_zig.py --tests
+```
+
+`scripts/build_zig.py` 用 `zig c++ --target=x86-windows-gnu` 编译，`scripts/makeres.py`
+直接生成含 manifest、版本信息与图标的 COFF 资源对象，`scripts/make_icon.py` 绘制应用图标。
+产物为 `dist/ClassRollCall.exe`。该构建依赖系统 UCRT（Windows 10/11 自带）。
+
+### 测试
+
+```powershell
+python scripts/make_fixtures.py                 # 生成 tests/fixtures（需 openpyxl / python-docx / xlwt）
+dist\tests\core_tests.exe
+dist\tests\import_tests.exe tests\fixtures
+```
+
+结果与待测项见 [测试记录](docs/TEST_REPORT.md)。
+
+本次菜单、资源、触屏与稳定性修复及验证范围见 [2.0.1 修复记录](docs/RELEASE_2_0_1.md)。
+普通权限下自动选择可写目录、完整迁移名单和避免反复保存弹窗见 [2.0.2 修复记录](docs/RELEASE_2_0_2.md)。
+
+### 内置名单的本地专用版
+
+把本地名单存入 `private/example.roster.json`，例如：
+
+```json
+{"id":"ExampleClass","class_name":"示例班级","names":["张三","李四"]}
+```
+
+```powershell
+python scripts/build_zig.py --edition private/example.roster.json --output dist/示例班级点名器.exe
+```
+
+专用版首次打开自动载入内置名单，跳过首次导入。每个 `id` 使用独立的数据目录、单实例锁、
+悬浮窗口类名和开机启动项。名单为空时会恢复该版本内置名单，之后编辑的名单正常保存。
+`private/` 和 `*.roster.json` 已忽略，生成的名单源文件只写入 `build/`，请勿把真实名单提交到公共仓库。
+
+其他 UI 回归测试（虚构名单与独立配置）：
+
+```powershell
+python tests/functional_ui.py dist/ClassRollCall.exe
+python tests/resource_tests.py dist/ClassRollCall.exe
+python tests/menu_input_tests.py dist/ClassRollCall.exe
+# 以下两项会在当前桌面移动鼠标、注入触摸，仅在本机专门测试时运行：
+python tests/menu_input_tests.py dist/ClassRollCall.exe --real --path --touch
+```
+
+## 目录
+
+```
+src/core       抽取算法、随机数
+src/storage    INI 设置与名单存储（原子写）
+src/importer   txt/csv/xls/xlsx/docx/剪贴板解析
+src/ui         悬浮窗、结果卡、自绘菜单、管理窗口、绘制层
+src/platform   DPI、指针/触摸、开机启动、显示器定位
+scripts/       构建、资源、图标、测试夹具
+third_party/   miniz / pugixml / libxls（见 THIRD_PARTY_NOTICES.md）
+```
+
+`src/ClassRollCall.py` 与 `tools/` 是原版 PyQt5 实现，仅作历史参考，不参与构建。
+规格见 [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)。

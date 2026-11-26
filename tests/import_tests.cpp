@@ -21,6 +21,9 @@ int wmain(int argc,wchar_t** argv) {
         auto multi=crc::parseDelimited(L"001\t张三\t男\r\n002\t李四\t女"); check(crc::detectNames(multi).column==-1,"Ambiguous columns must require user selection");
         check(crc::selectNames(multi,1,0,false).names.size()==2,"Manual column choice");
         auto one=crc::parseDelimited(L"  张三  \n\n",true); check(crc::selectNames(one,0,0,false).names==std::vector<std::wstring>{L"张三"},"Trim and empty rows");
+        auto exam=crc::parseDelimited(L"考生姓名\n\n张三\n李四\n",true); auto header=crc::detectNames(exam);
+        check(header.recognized&&header.column==0,"Recognize exam roster header");
+        check(crc::selectNames(exam,header.column,header.header,false).names==std::vector<std::wstring>{L"张三",L"李四"},"Exclude exam roster header and empty rows");
         for(auto file:{L"broken.xlsx",L"bomb.docx",L"dtd.docx"}) { bool failed=false; try { crc::importFile(root/file); } catch(const std::exception&) { failed=true; } check(failed,"Unsafe or damaged file must be rejected"); }
         bool failed=false; try { crc::parseDelimited(L"姓名\n\"张三"); } catch(const std::exception&) { failed=true; } check(failed,"Unclosed quote");
         std::cout<<"import tests passed\n"; return 0;

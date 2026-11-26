@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <cstddef>
 #include <random>
 #include <vector>
@@ -13,5 +13,8 @@ public:
     explicit Picker(unsigned seed) : engine_(seed) {}
     void reset();
     size_t pick(size_t count, PickMode mode);
+    // Number of students already drawn in the current balanced round.
+    size_t position() const { return next_; }
 };
 }
+

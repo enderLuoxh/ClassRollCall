@@ -1,4 +1,5 @@
 #include "platform.hpp"
+#include "edition.hpp"
 #include <algorithm>
 #include <stdexcept>
 #include <cwctype>
@@ -52,16 +53,16 @@ std::wstring startupValue() {
     HKEY key=nullptr;
     if(RegOpenKeyExW(HKEY_CURRENT_USER,runKey,0,KEY_QUERY_VALUE,&key)!=ERROR_SUCCESS) return {};
     DWORD type=0, bytes=0;
-    LSTATUS st=RegQueryValueExW(key,L"ClassRollCall",nullptr,&type,nullptr,&bytes);
+    LSTATUS st=RegQueryValueExW(key,edition::dataFolder(),nullptr,&type,nullptr,&bytes);
     std::wstring value(bytes/sizeof(wchar_t)+1,0);
-    if(st==ERROR_SUCCESS && type==REG_SZ) st=RegQueryValueExW(key,L"ClassRollCall",nullptr,&type,reinterpret_cast<BYTE*>(value.data()),&bytes);
+    if(st==ERROR_SUCCESS && type==REG_SZ) st=RegQueryValueExW(key,edition::dataFolder(),nullptr,&type,reinterpret_cast<BYTE*>(value.data()),&bytes);
     RegCloseKey(key); if(st!=ERROR_SUCCESS || type!=REG_SZ) return {}; value.resize(wcslen(value.c_str())); return value;
 }
 void setStartup(bool enabled) {
     HKEY key=nullptr;
     if(RegCreateKeyExW(HKEY_CURRENT_USER,runKey,0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS) throw std::runtime_error("Cannot open startup settings");
     std::wstring command=startupCommand();
-    LSTATUS st=enabled?RegSetValueExW(key,L"ClassRollCall",0,REG_SZ,reinterpret_cast<const BYTE*>(command.c_str()),static_cast<DWORD>((command.size()+1)*sizeof(wchar_t))):RegDeleteValueW(key,L"ClassRollCall");
+    LSTATUS st=enabled?RegSetValueExW(key,edition::dataFolder(),0,REG_SZ,reinterpret_cast<const BYTE*>(command.c_str()),static_cast<DWORD>((command.size()+1)*sizeof(wchar_t))):RegDeleteValueW(key,edition::dataFolder());
     RegCloseKey(key); if(st!=ERROR_SUCCESS && !(st==ERROR_FILE_NOT_FOUND&&!enabled)) throw std::runtime_error("Cannot update startup settings");
 }
 bool darkTheme() {

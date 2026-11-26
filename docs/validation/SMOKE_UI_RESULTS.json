@@ -1,23 +1,48 @@
 {
-  "cpu_ms_in_2s": 0,
-  "idle_working_set_bytes": 12218368,
-  "threads": 4,
-  "exe_bytes": 489984,
-  "dpi": 96,
-  "gui_balanced_round": [
-    "王五",
-    "张三",
-    "李四"
-  ],
-  "single_instance": "passed",
-  "auto_dismiss": "passed",
-  "no_activate": "passed",
-  "result_click_through": "passed",
-  "class_editor": "passed",
-  "import_preview": "passed",
-  "duplicate_toggle": "passed",
-  "import_confirmation": "passed",
-  "setup_startup_opt_in": "passed",
-  "touch_button_height_dip": 48,
-  "floating_face_dip": "96x56"
+  "build": {
+    "toolchain": "zig 0.13.0 cross compile (zig c++ --target=x86-windows-gnu)",
+    "config": "Release -O2 -DNDEBUG",
+    "machine": "0x014C (x86)",
+    "subsystem": 2,
+    "exeBytes": 1511424,
+    "resources": ["manifest", "VERSIONINFO", "RT_GROUP_ICON(14,1)", "RT_ICON(3,1..9)"],
+    "imports": [
+      "gdiplus.dll", "COMCTL32.dll", "UxTheme.dll", "ADVAPI32.dll", "SHELL32.dll",
+      "USER32.dll", "GDI32.dll", "ole32.dll", "KERNEL32.dll"
+    ],
+    "ucrtImports": "api-ms-win-crt-* (13 modules) - Windows 10/11 built in; Windows 7 needs KB2999226"
+  },
+  "runtime": {
+    "workingSetBytes": 17776640,
+    "privateBytes": 2998272,
+    "idleCpuMsPer3s": 0,
+    "threadsCreatedByApp": 0,
+    "networkRequests": 0
+  },
+  "tests": {
+    "core": "passed",
+    "import": "passed (17 fixtures)",
+    "guiSmoke": {
+      "checks": 24,
+      "failed": 0,
+      "skipped": ["autostart registry (sandbox denies HKCU Run writes)"],
+      "floatWindow": "186x114 px @144dpi (= 124x76 DIP)",
+      "resultWindow": "714x276 px @144dpi (= 476x184 DIP)",
+      "menu": "286x519 px @144dpi (= 191x346 DIP)"
+    },
+    "manual": [
+      "multi-file drag and drop -> one class per file",
+      "clipboard paste -> preview 3 students -> imported",
+      "workbook with cover sheet -> auto selected the roster sheet",
+      "dark theme via settings.ini"
+    ]
+  },
+  "notVerified": [
+    "clean Windows 7 SP1 without UCRT",
+    "Windows 8 / 8.1",
+    "physical touch panel (Honghe)",
+    "mixed DPI multi monitor switching",
+    "tray icon (test session had no explorer.exe shell)",
+    "DPI 100/125/175/200 and 1080p/1440p/4k"
+  ]
 }
