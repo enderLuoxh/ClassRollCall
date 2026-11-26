@@ -14,6 +14,25 @@
 namespace crc {
 static std::wstring text(HWND h) { int n=GetWindowTextLengthW(h); std::wstring s(n+1,0); GetWindowTextW(h,s.data(),n+1); s.resize(n); return s; }
 static void warning(HWND h,const std::exception& e) { showNotice(h,L"操作未完成",utf16(e.what())); }
+// Cover sheets and instruction pages are common in teacher workbooks, so open the
+// preview on the sheet whose name column actually holds names.
+static size_t bestSheet(const Document& doc) {
+    size_t best=0,bestScore=0;
+    for(size_t i=0;i<doc.sheets.size();++i) {
+        const auto& sheet=doc.sheets[i];
+        auto detected=detectNames(sheet);
+        size_t score=0;
+        if(detected.recognized&&detected.column>=0) for(size_t r=detected.header;r<sheet.rows.size();++r) {
+            const auto& row=sheet.rows[r];
+            if(static_cast<size_t>(detected.column)<row.size()&&!trim(row[detected.column]).empty()) ++score;
+        }
+        if(score>bestScore) { bestScore=score; best=i; }
+    }
+    if(bestScore>0) return best;
+    size_t rows=0;
+    for(size_t i=0;i<doc.sheets.size();++i) if(doc.sheets[i].rows.size()>rows) { rows=doc.sheets[i].rows.size(); best=i; }
+    return best;
+}
 using Dialog=DialogWindow;
 class Notice:public Dialog {
     std::wstring title_,message_;
@@ -41,7 +60,7 @@ class Editor:public Dialog {
         header(L"班级名单  ›  编辑班级",L"修改后保存，下一次打开即可使用。");
         card(28,108,width-56,88); label(L"班级名称",48,124,width-390,24); label(L"用于切换和识别班级",48,158,width-390,24,Role::Muted);
         add(L"EDIT",value_.name,WS_TABSTOP|ES_AUTOHSCROLL,100,width-330,128,282,48); SendMessageW(item(100),EM_SETLIMITTEXT,100,0);
-        label(L"学生名单",28,208,180); label(L"每行一个姓名 · 同名记录会保留",220,210,width-248,24,Role::Muted);
+        label(L"学生名单",28,208,180); label(L"每行一个姓名，同名记录会保留",220,210,width-248,24,Role::Muted);
         std::wstring all; for(const auto& n:value_.names) all+=n+L"\r\n";
         add(L"EDIT",all,WS_TABSTOP|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN,101,28,244,width-56,height-344); SendMessageW(item(101),EM_SETLIMITTEXT,1024*1024,0);
         button(L"取消",IDCANCEL,width-312,height-64); button(L"保存名单",IDOK,width-168,height-64,140);
@@ -65,7 +84,7 @@ class Preview:public Dialog {
         auto& sheet=doc_.sheets.at(sheet_);
         if(reset) {
             SendMessageW(item(102),CB_RESETCONTENT,0,0); SendMessageW(item(102),CB_ADDSTRING,0,reinterpret_cast<LPARAM>(L"请选择姓名列")); size_t count=0; for(auto& r:sheet.rows) count=std::max(count,r.size());
-            for(size_t c=0;c<count;++c) { auto label=L"第 "+std::to_wstring(c+1)+L" 列"; if(!sheet.rows.empty()&&c<sheet.rows[0].size()&&!sheet.rows[0][c].empty()) label+=L" · "+sheet.rows[0][c].substr(0,30); SendMessageW(item(102),CB_ADDSTRING,0,reinterpret_cast<LPARAM>(label.c_str())); }
+            for(size_t c=0;c<count;++c) { auto label=L"第 "+std::to_wstring(c+1)+L" 列"; if(!sheet.rows.empty()&&c<sheet.rows[0].size()&&!sheet.rows[0][c].empty()) label+=L" "+sheet.rows[0][c].substr(0,30); SendMessageW(item(102),CB_ADDSTRING,0,reinterpret_cast<LPARAM>(label.c_str())); }
             auto detected=detectNames(sheet); SendMessageW(item(102),CB_SETCURSEL,detected.column<0?0:detected.column+1,0);
             SetWindowTextW(item(103),std::to_wstring(detected.recognized?detected.header:0).c_str());
         }
@@ -74,7 +93,7 @@ class Preview:public Dialog {
         if(col<0) { SetWindowTextW(item(105),L"未确定姓名列，请手动选择；原表前 30 行如下。"); size_t rows=0; for(auto& r:sheet.rows) { std::wstring line; for(auto& c:r) { if(!line.empty()) line+=L"  |  "; line+=c.substr(0,40); } SendMessageW(item(104),LB_ADDSTRING,0,reinterpret_cast<LPARAM>(line.c_str())); if(++rows>=30) break; } EnableWindow(item(IDOK),FALSE); return; }
         int skip=GetDlgItemInt(hwnd,103,nullptr,FALSE); if(skip<0||skip>static_cast<int>(sheet.rows.size())) throw std::runtime_error("跳过行数无效");
         auto selected=selectNames(sheet,col,skip,SendMessageW(item(106),BM_GETCHECK,0,0)==BST_CHECKED);
-        auto summary=std::to_wstring(selected.names.size())+L" 位学生  ·  "+std::to_wstring(selected.duplicates)+L" 条重复  ·  "+std::to_wstring(selected.blanks)+L" 条空白";
+        auto summary=std::to_wstring(selected.names.size())+L" 位学生，"+std::to_wstring(selected.duplicates)+L" 条重复，"+std::to_wstring(selected.blanks)+L" 条空白";
         SetWindowTextW(item(105),summary.c_str()); size_t n=0; for(auto& name:selected.names) { SendMessageW(item(104),LB_ADDSTRING,0,reinterpret_cast<LPARAM>(name.c_str())); if(++n>=500) break; }
         EnableWindow(item(IDOK),!selected.names.empty());
     }
@@ -87,7 +106,8 @@ class Preview:public Dialog {
         card(right,100,available,height-184);
         label(L"班级名称",40,112,left-32,18,Role::Muted); add(L"EDIT",className_,WS_TABSTOP|ES_AUTOHSCROLL,100,40,134,left-32,44); SendMessageW(item(100),EM_SETLIMITTEXT,100,0);
         label(L"工作表 / 文档内容",40,roomy?204:182,left-32,18,Role::Muted); add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,101,40,roomy?228:204,left-32,44);
-        for(auto& s:doc_.sheets) SendMessageW(item(101),CB_ADDSTRING,0,reinterpret_cast<LPARAM>(s.name.c_str())); SendMessageW(item(101),CB_SETCURSEL,0,0);
+        for(auto& s:doc_.sheets) SendMessageW(item(101),CB_ADDSTRING,0,reinterpret_cast<LPARAM>(s.name.c_str()));
+        sheet_=bestSheet(doc_); SendMessageW(item(101),CB_SETCURSEL,sheet_,0);
         label(L"姓名所在列",40,roomy?296:252,left-32,18,Role::Muted); add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,102,40,roomy?320:274,left-32,44);
         label(L"跳过表头行数",40,roomy?398:340,left-120,24,Role::Muted); add(L"EDIT",L"0",WS_TABSTOP|ES_NUMBER,103,left-48,roomy?386:328,64,44); SendMessageW(item(103),EM_SETLIMITTEXT,5,0);
         if(height>=600) label(L"确认姓名列后，右侧预览会即时更新。",40,452,left-32,50,Role::Muted);
@@ -147,7 +167,7 @@ class Manager:public Dialog {
     void refresh() { SendMessageW(item(100),LB_RESETCONTENT,0,0); for(auto& c:state_.classes) { auto s=c.name+L"\t"+std::to_wstring(c.names.size())+L" 位学生"; SendMessageW(item(100),LB_ADDSTRING,0,reinterpret_cast<LPARAM>(s.c_str())); } SendMessageW(item(100),LB_SETCURSEL,0,0); if(item(107)) ShowWindow(item(107),state_.classes.empty()&&page_==201?SW_SHOW:SW_HIDE); }
     void navigate(int page) {
         page_=page; showGroup(page);
-        for(int id=201;id<=204;++id) role(id,id==page?Role::SelectedNavigation:Role::Navigation);
+        for(int id=201;id<=203;++id) role(id,id==page?Role::SelectedNavigation:Role::Navigation);
         role(2201,state_.mode==PickMode::Balanced?Role::Primary:Role::Secondary);
         role(2202,state_.mode==PickMode::Random?Role::Primary:Role::Secondary);
         SetWindowTextW(item(2201),state_.mode==PickMode::Balanced?L"当前使用":L"使用此模式");
@@ -160,8 +180,6 @@ class Manager:public Dialog {
         button(L"班级名单",201,12,114,200,Role::Navigation);
         button(L"导入名单",202,12,170,200,Role::Navigation);
         button(L"使用偏好",203,12,226,200,Role::Navigation);
-        button(L"关于",204,12,282,200,Role::Navigation);
-        label(L"完全离线 · 即点即用",24,height-60,192,24,Role::Muted);
         button(L"完成",IDOK,width-168,height-64,140);
         const int x=248,w=width-x-28;
         group(201);
@@ -184,16 +202,12 @@ class Manager:public Dialog {
         card(x,116,w,80); label(L"均衡抽取",x+20,128,w-196,24); label(L"一轮内每条记录只会抽中一次",x+20,160,w-196,24,Role::Muted); button(L"使用此模式",2201,width-192,132,144);
         card(x,208,w,80); label(L"完全随机",x+20,220,w-196,24); label(L"每次独立抽取，允许连续重复",x+20,252,w-196,24,Role::Muted); button(L"使用此模式",2202,width-192,224,144);
         card(x,300,w,76); add(L"BUTTON",L"登录 Windows 后自动启动",WS_TABSTOP|BS_AUTOCHECKBOX,2203,x+20,314,w-40,48); SendMessageW(item(2203),BM_SETCHECK,state_.autostart?BST_CHECKED:BST_UNCHECKED,0);
-        group(204);
-        label(L"关于",x,24,w,36,Role::Title); label(L"ClassRollCall",x,90,w,36,Role::Title);
-        card(x,156,w,164); label(L"版本 2.0",x+20,176,w-40,24); label(L"班级点名工具",x+20,214,w-40,24); label(L"作者 enderLuoxh · MIT License",x+20,252,w-40,24,Role::Muted);
-        label(L"无需账户，名单保存在这台电脑上。",x,344,w,40,Role::Muted);
         group(0); navigate(page_);
     }
     void event(int id,int code) override {
-        if(id>=201&&id<=204) { navigate(id); return; }
+        if(id>=201&&id<=203) { navigate(id); return; }
         if(id==2201||id==2202) { state_.mode=id==2201?PickMode::Balanced:PickMode::Random; changed_=true; navigate(203); return; }
-        if(id==2203) { bool enabled=SendMessageW(item(2203),BM_GETCHECK,0,0)==BST_CHECKED; setStartup(enabled); state_.autostart=enabled; changed_=true; return; }
+        if(id==2203) { bool enabled=SendMessageW(item(2203),BM_GETCHECK,0,0)==BST_CHECKED; try { setStartup(enabled); } catch(...) { SendMessageW(item(2203),BM_SETCHECK,state_.autostart?BST_CHECKED:BST_UNCHECKED,0); throw; } state_.autostart=enabled; changed_=true; return; }
         int index=static_cast<int>(SendMessageW(item(100),LB_GETCURSEL,0,0));
         if(id==101||id==102||(id==100&&code==LBN_DBLCLK)) { bool addNew=id==101; if(!addNew&&(index<0||index>=static_cast<int>(state_.classes.size()))) return; Editor editor(addNew?ClassRoom{L"",L"新班级",{}}:state_.classes[index]); if(editor.show(hwnd,L"编辑班级名单")) { auto c=editor.value(); for(size_t n=0;n<state_.classes.size();++n) if((addNew||n!=static_cast<size_t>(index))&&state_.classes[n].name==c.name) throw std::runtime_error("班级名称已存在，请使用其他名称"); state_.current=c.id; if(addNew) state_.classes.push_back(std::move(c)); else state_.classes[index]=std::move(c); changed_=true; refresh(); } }
         else if(id==103&&index>=0) { if(showNotice(hwnd,L"删除这个班级？",L"“"+state_.classes[index].name+L"”将从班级列表移除。",{{IDCANCEL,L"保留班级"},{IDYES,L"确认删除"}})==IDYES) { state_.classes.erase(state_.classes.begin()+index); if(!state_.active()) state_.current=state_.classes.empty()?L"":state_.classes.front().id; changed_=true; refresh(); } }
@@ -213,7 +227,7 @@ class Welcome:public Dialog {
         card(24,116,width-48,142); label(L"先准备一份班级名单",44,134,width-88,28); label(L"从表格、文档或文本导入，也可以稍后添加。",44,172,width-88,24,Role::Muted);
         button(L"导入名单",101,width-196,202,152,Role::Primary);
         card(24,278,width-48,76); add(L"BUTTON",L"登录 Windows 后自动启动",WS_TABSTOP|BS_AUTOCHECKBOX,102,44,292,width-88,48);
-        label(L"点按抽取 · 拖动放置 · 长按打开菜单",28,height-52,width-250,28,Role::Muted); button(L"开始使用",IDOK,width-172,height-64,144);
+        label(L"点按抽取，拖动放置，长按打开菜单",28,height-52,width-250,28,Role::Muted); button(L"开始使用",IDOK,width-172,height-64,144);
     }
     void event(int id,int code) override { if(id==101) importFiles(hwnd,state_); else if(id==IDOK) { bool enabled=SendMessageW(item(102),BM_GETCHECK,0,0)==BST_CHECKED; if(enabled) setStartup(true); state_.autostart=enabled; state_.initialized=true; finish(true); } else Dialog::event(id,code); }
 public:

@@ -97,7 +97,13 @@ void DialogWindow::drawToggle(HWND h,HDC dc) {
     RECT track{0,top,px(42,dpi),top+px(24,dpi)}; roundedFill(dc,track,px(12,dpi),checked?palette_.accent:palette_.hover,checked?palette_.accent:palette_.border);
     int knobX=checked?px(21,dpi):px(3,dpi); RECT knob{knobX,top+px(3,dpi),knobX+px(18,dpi),top+px(21,dpi)};
     roundedFill(dc,knob,px(9,dpi),checked?palette_.accentText:palette_.muted,checked?palette_.accentText:palette_.muted);
-    auto old=SelectObject(dc,font_); SetTextColor(dc,palette_.text); SetBkMode(dc,TRANSPARENT); r.left=px(54,dpi); auto title=caption(h); DrawTextW(dc,title.c_str(),-1,&r,DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS|DT_NOPREFIX); if(GetFocus()==h) { InflateRect(&r,-2,-2); DrawFocusRect(dc,&r); } SelectObject(dc,old);
+    auto old=SelectObject(dc,font_); SetTextColor(dc,palette_.text); SetBkMode(dc,TRANSPARENT); r.left=px(54,dpi); auto title=caption(h); DrawTextW(dc,title.c_str(),-1,&r,DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS|DT_NOPREFIX); SelectObject(dc,old);
+    if(GetFocus()==h && !(SendMessageW(h,WM_QUERYUISTATE,0,0)&UISF_HIDEFOCUS)) {
+        RECT focus=track; InflateRect(&focus,px(3,dpi),px(3,dpi));
+        HPEN pen=CreatePen(PS_SOLID,px(1,dpi),palette_.accent); auto oldPen=SelectObject(dc,pen); auto oldBrush=SelectObject(dc,GetStockObject(NULL_BRUSH));
+        RoundRect(dc,focus.left,focus.top,focus.right,focus.bottom,px(28,dpi),px(28,dpi));
+        SelectObject(dc,oldBrush); SelectObject(dc,oldPen); DeleteObject(pen);
+    }
 }
 void DialogWindow::drawClosedCombo(HWND h,HDC dc) {
     auto* c=control(h); if(!c) return; RECT r{}; GetClientRect(h,&r); SetDCBrushColor(dc,backing(*c)); FillRect(dc,&r,static_cast<HBRUSH>(GetStockObject(DC_BRUSH)));
@@ -114,6 +120,7 @@ LRESULT CALLBACK DialogWindow::childProc(HWND h,UINT msg,WPARAM wp,LPARAM lp,UIN
         if(msg==WM_PAINT&&c->role==Role::Toggle) { PAINTSTRUCT ps; HDC dc=BeginPaint(h,&ps); d->drawToggle(h,dc); EndPaint(h,&ps); return 0; }
         if(msg==WM_PAINT&&c->role==Role::Combo) { LRESULT result=DefSubclassProc(h,msg,wp,lp); HDC dc=GetDC(h); d->drawClosedCombo(h,dc); ReleaseDC(h,dc); return result; }
         if(msg==WM_SETFOCUS||msg==WM_KILLFOCUS) { InvalidateRect(d->hwnd,nullptr,FALSE); InvalidateRect(h,nullptr,FALSE); }
+        if(msg==WM_UPDATEUISTATE&&c->role==Role::Toggle) { LRESULT result=DefSubclassProc(h,msg,wp,lp); InvalidateRect(h,nullptr,FALSE); return result; }
         if(msg==BM_SETCHECK||msg==WM_LBUTTONUP||msg==WM_KEYUP) { LRESULT result=DefSubclassProc(h,msg,wp,lp); InvalidateRect(h,nullptr,FALSE); return result; }
     }
     return DefSubclassProc(h,msg,wp,lp);
@@ -158,7 +165,7 @@ LRESULT CALLBACK DialogWindow::proc(HWND h,UINT m,WPARAM w,LPARAM l) {
 }
 DialogWindow::~DialogWindow() { if(hwnd&&IsWindow(hwnd)) DestroyWindow(hwnd); for(HFONT f:{font_,titleFont_,smallFont_}) if(f) DeleteObject(f); }
 bool DialogWindow::show(HWND owner,const std::wstring& title) {
-    static bool registered=[] { WNDCLASSEXW wc{sizeof wc}; wc.lpfnWndProc=proc; wc.hInstance=GetModuleHandleW(nullptr); wc.hCursor=LoadCursorW(nullptr,IDC_ARROW); wc.lpszClassName=L"ClassRollCall.Native.Dialog"; return RegisterClassExW(&wc)!=0; }();
+    static bool registered=[] { WNDCLASSEXW wc{sizeof wc}; wc.lpfnWndProc=proc; wc.hInstance=GetModuleHandleW(nullptr); wc.hCursor=LoadCursorW(nullptr,IDC_ARROW); wc.hIcon=LoadIconW(wc.hInstance,MAKEINTRESOURCEW(1)); wc.hIconSm=wc.hIcon; wc.lpszClassName=L"ClassRollCall.Native.Dialog"; return RegisterClassExW(&wc)!=0; }();
     if(!registered) throw std::runtime_error("无法注册设置窗口"); auto monitor=MonitorFromWindow(owner,MONITOR_DEFAULTTONEAREST); dpi=monitorDpi(monitor); auto work=workArea(monitor);
     width=std::min(width,MulDiv(work.right-work.left,96,dpi)-32); height=std::min(height,MulDiv(work.bottom-work.top,96,dpi)-52);
     controls_.reserve(96); dark_=darkTheme(); palette_=Palette::system(dark_);
