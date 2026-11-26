@@ -1,0 +1,16 @@
+{
+  "cpu_ms_in_2s": 0,
+  "idle_working_set_bytes": 12238848,
+  "threads": 4,
+  "exe_bytes": 470528,
+  "dpi": 96,
+  "gui_balanced_round": [
+    "王五",
+    "李四",
+    "张三"
+  ],
+  "single_instance": "passed",
+  "auto_dismiss": "passed",
+  "no_activate": "passed",
+  "result_click_through": "passed"
+}

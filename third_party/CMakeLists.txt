@@ -1,0 +1,27 @@
+set(miniz_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/miniz")
+set(pugixml_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/pugixml")
+set(libxls_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/libxls")
+# Build the pinned, vendored readers without network downloads or upstream tools.
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/miniz_config")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/miniz_config/miniz_export.h"
+  "#pragma once\n#define MINIZ_EXPORT\n#define MINIZ_NO_EXPORT\n")
+add_library(miniz STATIC ${miniz_SOURCE_DIR}/miniz.c ${miniz_SOURCE_DIR}/miniz_tdef.c
+  ${miniz_SOURCE_DIR}/miniz_tinfl.c ${miniz_SOURCE_DIR}/miniz_zip.c)
+target_include_directories(miniz PUBLIC "${miniz_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/miniz_config")
+set_target_properties(miniz PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES)
+add_library(pugixml STATIC ${pugixml_SOURCE_DIR}/src/pugixml.cpp)
+add_library(pugixml::pugixml ALIAS pugixml)
+target_include_directories(pugixml PUBLIC "${pugixml_SOURCE_DIR}/src")
+# libxls uses autotools upstream; compile only its reader as a static library.
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/xls_config")
+configure_file(config.h.in "${CMAKE_CURRENT_BINARY_DIR}/xls_config/config.h" @ONLY)
+add_library(xlsreader STATIC ${libxls_SOURCE_DIR}/src/xls.c ${libxls_SOURCE_DIR}/src/ole.c ${libxls_SOURCE_DIR}/src/xlstool.c ${libxls_SOURCE_DIR}/src/endian.c ${PROJECT_SOURCE_DIR}/src/importer/xls_locale.c)
+target_include_directories(xlsreader PUBLIC ${libxls_SOURCE_DIR}/include PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/xls_config")
+target_compile_definitions(xlsreader PRIVATE _CRT_SECURE_NO_WARNINGS)
+if(MSVC)
+  target_compile_options(xlsreader PRIVATE /std:c11)
+endif()
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/licenses")
+configure_file(${miniz_SOURCE_DIR}/LICENSE "${PROJECT_BINARY_DIR}/licenses/miniz.txt" COPYONLY)
+configure_file(${pugixml_SOURCE_DIR}/LICENSE.md "${PROJECT_BINARY_DIR}/licenses/pugixml.txt" COPYONLY)
+configure_file(${libxls_SOURCE_DIR}/LICENSE "${PROJECT_BINARY_DIR}/licenses/libxls.txt" COPYONLY)

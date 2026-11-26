@@ -1,0 +1,15 @@
+#ifndef CLASSROLLCALL_XLS_CONFIG_H
+#define CLASSROLLCALL_XLS_CONFIG_H
+#include <stdint.h>
+#include <stddef.h>
+#define HAVE_WCHAR_H 1
+#define HAVE_STRDUP 1
+#define PACKAGE_VERSION "1.6.3"
+#define LIBXLS_MAJOR_VERSION 1
+#define LIBXLS_MINOR_VERSION 6
+#define LIBXLS_MICRO_VERSION 3
+#ifdef _MSC_VER
+#define restrict __restrict
+#define strdup _strdup
+#endif
+#endif
